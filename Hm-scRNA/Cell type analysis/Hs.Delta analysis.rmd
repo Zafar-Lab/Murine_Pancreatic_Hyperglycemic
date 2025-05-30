@@ -1,0 +1,373 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+Hs.Delta <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/HIRN delta and gamma annotated 0.03 .rds")
+DimPlot(Hs.Delta, split.by = "condition")
+
+FeaturePlot(Hs.Delta, features = c("SST", "PPY", "INS", "GCG"))
+```
+
+```{r}
+Hs.Delta <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/HIRN Delta annotated 0.05.rds")
+
+seurat_object <- Hs.Delta
+seurat_object <- SetIdent(seurat_object, value = seurat_object$subtype2)
+
+all_markers <- FindAllMarkers(seurat_object, logfc.threshold = 0.25, only.pos = F)
+all_markers <- all_markers[all_markers$p_val_adj < 0.05 ,]
+write.csv(all_markers, "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Delta/Markers_Hs-Delta.csv")
+
+path_to_save <- paste0("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Delta/",unique(seurat_object$subtype2)[i]," vs all.xlsx")
+
+for (i in 1:length(unique(seurat_object$subtype2))) {
+  
+all_markers_subset <- all_markers[all_markers$cluster == unique(seurat_object$subtype2)[i], ]
+  
+rownames(all_markers_subset)  <- all_markers_subset$gene 
+all_markers_subset <- all_markers_subset %>% arrange(desc(avg_log2FC))
+fold_change <- all_markers_subset$avg_log2FC
+names(fold_change) <- all_markers_subset$gene
+
+#GSEA Pathway sheet 
+###########################################################################################
+gsea_sheet <- fgsea(pathways = genesets, stats = fold_change, minSize = 5, maxSize = 5000) 
+gsea_sheet <- gsea_sheet %>% arrange(NES)
+gsea_sheet <- filter(gsea_sheet, pval <= 0.05) %>% arrange(NES)
+
+
+
+for (x in 1:length(gsea_sheet$leadingEdge)) {
+  gsea_sheet$genes[x]<- paste0(unlist(gsea_sheet$leadingEdge[x]), collapse = ", ")
+}
+
+gsea_sheet$leadingEdge <- NULL
+gsea_sheet <- unique(gsea_sheet)
+  
+path_to_save <- paste0("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Delta/",unique(seurat_object$subtype2)[i]," vs all.xlsx")
+writexl::write_xlsx(gsea_sheet, path = path_to_save)
+
+}
+
+```
+
+
+```{r}
+library(ggplot2)
+library(fgsea)
+#Inputs
+seurat_object <- Hs.Delta
+seurat_object <- SetIdent(seurat_object, value = seurat_object$subtype2_condition)
+
+
+cluster_names <- c("Hs-Delta 1", "Hs-Delta 2")
+conditions <- c("Control", "Obese", "T2D")
+
+
+##############################################################################################################################
+
+for (i in 1:length(cluster_names)) {
+for (j in 2:3) {
+  
+identity.1 <- paste0(cluster_names[i],"_",conditions[j])
+identity.2 <- paste0(cluster_names[i],"_","Control")
+print(paste0(identity.1, " vs ", identity.2))
+
+Markers_gsea <- FindMarkers(seurat_object, ident.1 = identity.1, ident.2 = identity.2 , only.pos = F, logfc.threshold = 0.5)
+Markers_gsea$gene <- rownames(Markers_gsea)
+Markers_gsea <- Markers_gsea %>% arrange(desc(avg_log2FC))
+fold_change <- Markers_gsea$avg_log2FC
+names(fold_change) <- Markers_gsea$gene
+
+gsea_sheet <- fgsea(pathways = genesets, stats = fold_change, minSize = 5, maxSize = 5000) 
+gsea_sheet <- gsea_sheet[gsea_sheet$pval < 0.05, ]
+gsea_sheet <- gsea_sheet %>% arrange(NES)
+
+for (x in 1:length(gsea_sheet$leadingEdge)) {
+  gsea_sheet$genes[x]<- paste0(unlist(gsea_sheet$leadingEdge[x]), collapse = ", ")
+}
+
+gsea_sheet$leadingEdge <- NULL
+gsea_sheet <- unique(gsea_sheet)
+
+path_for_saving_gseaSheet <- paste0("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Delta/GSEA analysis ",identity.1,".xlsx")
+writexl::write_xlsx(gsea_sheet, path = path_for_saving_gseaSheet)
+
+}
+ }
+
+```
+
+
+```{r}
+markers_delta <- read.csv("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Delta/Markers_Hs-Delta.csv")
+```
+
+
+#Saving final plots
+
+```{r}
+Hs.Delta <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN Delta annotated 0.05 JT.rds")
+```
+
+```{r}
+D1 <- DimPlot(Hs.Delta)
+ggsave(plot = D1, filename = "Hs.Delta Dimplot.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Delta/",height = 5, width = 7, device = "tiff", dpi = 600)
+
+D2 <- DimPlot(Hs.Delta, split.by = "condition")+NoLegend()
+ggsave(plot = D2, filename = "Hs.Delta Dimplot split.by.cond.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Delta/",height = 5, width = 15, device = "tiff", dpi = 600)
+
+F1 <- FeaturePlot(Hs.Delta, features = "INS")+NoLegend()
+ggsave(plot = F1, filename = "Hs.Delta Featureplot INS.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Delta/",height = 5, width = 5, device = "tiff", dpi = 600)
+
+F2 <- FeaturePlot(Hs.Delta, features = "GCG")+NoLegend()
+ggsave(plot = F2, filename = "Hs.Delta Featureplot GCG.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Delta/",height = 5, width = 5, device = "tiff", dpi = 600)
+
+F3 <- FeaturePlot(Hs.Delta, features = "PPY")+NoLegend()
+ggsave(plot = F3, filename = "Hs.Delta Featureplot PPY.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Delta/",height = 5, width = 5, device = "tiff", dpi = 600)
+
+
+F3 <- FeaturePlot(Hs.Delta, features = "SST")+NoLegend()
+ggsave(plot = F3, filename = "Hs.Delta Featureplot SST.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Delta/",height = 5, width = 5, device = "tiff", dpi = 600)
+
+
+levels(Hs.Delta) <- c("Hs-Delta 1", "Hs-Delta 2")
+V1 <- VlnPlot(Hs.Delta, features = c("SST","GCG", "INS", "PPY"))+theme(axis.text.x = element_text(size=11, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=11, color="black"),
+        axis.title = element_text(size=14))
+
+ggsave(plot = V1, filename = "Hs.Delta vlnplot endo_hormone.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Delta/",height = 9, width = 8, device = "tiff", dpi = 600)
+```
+  
+```{r}
+
+VlnPlot(Hs.Delta,features =c("S100A10", "PLCG2", "NDUFS6", "SELENOW","GCG","INS","REG1A", "PRSS2"), stack = T, flip = T)+NoLegend()
+
+V2 <- VlnPlot(Hs.Delta, features = c("S100A10", "PLCG2", "NDUFS6", "SELENOW","GCG","INS","REG1A", "PRSS2"), stack = T, flip = T)+theme(axis.text.x = element_text(size=11, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=11, color="black"),
+        axis.title = element_text(size=14))+NoLegend()
+
+ggsave(plot = V2, filename = "Hs.Delta vlnplot Delta 1 vs 2.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Delta/",height = 8, width = 4, device = "tiff", dpi = 600)
+
+
+
+
+
+Hs.Delta <- SetIdent(Hs.Delta, value = Hs.Delta$subtype2_condition)
+levels(Hs.Delta) <- rev(c("Hs-Delta 1_Control","Hs-Delta 1_Obese","Hs-Delta 1_T2D","Hs-Delta 2_Control","Hs-Delta 2_Obese","Hs-Delta 2_T2D"))
+
+
+Dot1 <- DotPlot(Hs.Delta, assay = "RNA", features = c("PAX6", "IGFBP2", "MAFB", "CHGA", "CHGB","INS", "SST", "PRSS1", "CTRB2", "CELA3A"), scale.min = 0, scale.max = 100, dot.scale = 15) +theme(axis.text.x = element_text(size=11, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=11, color="black"),
+        axis.title = element_text(size=14), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 11), legend.text  = element_text(size=8))  
+
+
+Dot1
+
+ggsave(plot = Dot1, filename = "Hs.Delta dotplot Alpha1 vs 2.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Delta/",height = 6, width = 8, device = "tiff", dpi = 600)
+
+```
+
+
+
+
+
+
+```{r}
+pathway_sheet_to_plot <- readxl::read_excel("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Delta/GSEA alpha 2 vs alpha 1 .1.xlsx", sheet = "stringent sorting")
+
+############################################################################################################################################
+gsea_sheet_sig <- pathway_sheet_to_plot
+gsea_sheet_sig <- gsea_sheet_sig %>% arrange(-NES)
+pathway <- gsea_sheet_sig$pathway
+NES <- gsea_sheet_sig$NES
+p_val <- gsea_sheet_sig$pval
+
+
+gsea_enrichment_plot <- ggplot() + geom_bar(aes(x = reorder(pathway, NES), y = NES, fill = p_val), 
+                    stat = "identity", show.legend = T) +scale_fill_gradient(low = "blue", high = "red") + coord_flip()+ ggtitle(paste0("GSEA: Hs-Delta 1 vs Hs-Delta 2"))+ theme(plot.title = element_text(hjust = 0.5))
+
+ggsave(plot = gsea_enrichment_plot, filename = "Hs.Delta GSEA filtered Alpha1 vs 2.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Delta/",height = 3.5, width = 12.5, device = "tiff", dpi = 600)
+```
+
+```{r}
+Hs.Delta <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN Delta annotated 0.05 JT.rds")
+```
+
+#DEG and pathway analysis across conditions
+```{r}
+library(ggplot2)
+library(fgsea)
+
+#Inputs
+seurat_object <- Hs.Delta
+seurat_object <- SetIdent(seurat_object, value = seurat_object$subtype2_condition)
+
+
+cluster_names <- c("Hs-Delta 1", "Hs-Delta 2")
+conditions <- c("Control", "Obese", "T2D")
+
+
+##############################################################################################################################
+
+for (i in 1:length(cluster_names)) {
+for (j in 2:3) {
+  
+identity.1 <- paste0(cluster_names[i],"_",conditions[j])
+identity.2 <- paste0(cluster_names[i],"_","Control")
+print(paste0(identity.1, " vs ", identity.2))
+
+Markers_gsea <- FindMarkers(seurat_object, ident.1 = identity.1, ident.2 = identity.2 , only.pos = F, logfc.threshold = 0.5)
+Markers_gsea$gene <- rownames(Markers_gsea)
+
+Markers_gsea <- Markers_gsea %>% arrange(desc(avg_log2FC))
+fold_change <- Markers_gsea$avg_log2FC
+names(fold_change) <- Markers_gsea$gene
+
+gsea_sheet <- fgsea(pathways = genesets, stats = fold_change, minSize = 5, maxSize = 5000) 
+gsea_sheet <- gsea_sheet[gsea_sheet$pval < 0.05, ]
+gsea_sheet <- gsea_sheet %>% arrange(NES)
+
+for (x in 1:length(gsea_sheet$leadingEdge)) {
+  gsea_sheet$genes[x]<- paste0(unlist(gsea_sheet$leadingEdge[x]), collapse = ", ")
+}
+
+gsea_sheet$leadingEdge <- NULL
+gsea_sheet <- unique(gsea_sheet)
+
+path_for_saving_gseaSheet <- paste0("G:/jayesh/HIRN Data/Sheets/Hs-Delta/GSEA analysis ",identity.1,".xlsx")
+writexl::write_xlsx(gsea_sheet, path = path_for_saving_gseaSheet)
+
+}
+  }
+
+```
+
+
+```{r}
+HIRN_data <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN seurat processed and annotated wo juvenile JT.rds")
+HIRN_data$cellchat_states.detailed.condition <- paste0(HIRN_data$cellchat_states.detailed, "_", HIRN_data$condition)
+```
+
+```{r}
+GSEA.genelist <- readxl::read_excel("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Delta/GSEA analysis Hs-Delta 2_Obese.xlsx", sheet = "sorted")
+GSEA.genelist <- GSEA.genelist %>% arrange(-NES)
+
+HIRN_data <- SetIdent(HIRN_data, value = HIRN_data$cellchat_states.detailed.condition)
+
+
+levels(HIRN_data) <- levels(HIRN_data) %>% sort()
+idents_to_use <- c("Hs-Delta 1_Control","Hs-Delta 1_Obese","Hs-Delta 1_T2D","Hs-Delta 2_Control","Hs-Delta 2_Obese","Hs-Delta 2_T2D"
+                   #,"Hs-Delta 3_Control","Hs-Delta 3_Obese","Hs-Delta 3_T2D"
+                   )
+  
+#View(GSEA.genelist)
+
+pdf(file = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Delta/Hs-Delta 2 GSEA plots Obese.pdf", width = 17, height = 8)
+########################################################################################################
+for (i  in 1:length(GSEA.genelist$pathway)) {
+  
+ pathway_name <- print(GSEA.genelist$pathway[i])
+ NES <- print(signif(GSEA.genelist$NES[i]), digits = 3)
+ P.adj <- print(signif(GSEA.genelist$padj[i], digits = 3))
+ P.val <- print(signif(GSEA.genelist$pval[i], digits = 3))
+
+  genes_to_plot <- c(unlist(strsplit(unlist(GSEA.genelist$genes[i]), split = ", ")))
+
+  print(genes_to_plot)    
+
+Plot <- DotPlot(HIRN_data, assay = "RNA", features = genes_to_plot, idents = idents_to_use , scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("Cyan", "Red")) +theme(axis.text.x = element_text(size=11, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=14, color="black"),
+        axis.title = element_text(size=14), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 9), legend.text  = element_text(size=8))+ggtitle(  " ",paste0(pathway_name, "\n\nNES: ",NES, "  P_val: ",P.val,"  P.adj: ",P.adj))
+
+print(Plot)
+
+}
+
+dev.off()
+```
+
+
+```{r}
+HIRN_cellchat <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/CellChat/HIRN_cellchat_states.detailed.rds")
+
+```
+
+```{r}
+
+library(EnhancedVolcano)
+
+seurat_object <- Hs.Delta
+seurat_object<-SetIdent(seurat_object, value = seurat_object$subtype2)
+DefaultAssay(seurat_object) <- "RNA"
+
+#INPUTS
+identity.1 <- "Hs-Delta 1"
+identity.2 <- "Hs-Delta 2"
+ y.axis.limit <- c(0,37) 
+  x.axis.limit <-  c(-3,1)
+#############################################################################################################################################
+  
+
+differential.activity <- FindMarkers(
+  object = seurat_object,
+  ident.1 = identity.1, ident.2 = identity.2,
+  only.pos = F, logfc.threshold = 0.1)
+
+
+#volcano_degsfiltered = differential.activity[differential.activity$p_val_adj <= 0.05,]
+    
+ volcano_degsfiltered = differential.activity
+
+    res <- volcano_degsfiltered
+    
+    colnames(res) <- c("P val", "log2FC", "pct.1", "pct.2", "P adj.")
+    
+     keyvals <- ifelse(res$log2FC < -0.25 & res$`P adj.`<0.05 , 'royalblue',
+      ifelse(res$log2FC > 0.25 & res$`P adj.`<0.05, 'red',
+           ifelse(res$`P adj.`<0.05, "grey","black")))
+    
+    #keyvals[is.na(keyvals)] <- 'black'
+    names(keyvals)[keyvals == 'grey'] <- 'Stably expressed'
+    names(keyvals)[keyvals == 'red'] <- 'Upregulated'
+    names(keyvals)[keyvals == 'black'] <- "Not significant"
+    names(keyvals)[keyvals == 'royalblue'] <- 'Downregulated'
+
+
+    plotvolcano1 <- EnhancedVolcano(res,
+                                    lab = rownames(res),
+                                    x = 'log2FC',
+                                    y = 'P adj.', selectLab = rownames(res)[which(names(keyvals) %in% c('Upregulated','Downregulated'))],
+                                    xlab = bquote(~Log[2]~ 'fold change'),
+                                    title = paste(identity.1,"Vs",identity.2,": DEGs HIRN data"),
+                                   pCutoff =  0.05,
+                                   
+                                    FCcutoff = 0.25,
+                                    pointSize = 2.5,
+                                    labSize = 3,
+
+                                    colCustom = keyvals,
+                                    colAlpha = 1,
+                                    legendPosition = 'top',
+                                    legendLabSize = 10,
+                                    legendIconSize = 5.0,
+                                    drawConnectors = TRUE,
+                                    widthConnectors = 1.0,
+                                    colConnectors = 'black',
+                                    arrowheads = F,
+                                    gridlines.major = F,
+                                    gridlines.minor = FALSE,
+                                    border = 'partial',
+                                    borderWidth = 1.5,
+                                    borderColour = 'black',
+                                  ylim = y.axis.limit 
+                                   ,xlim = x.axis.limit, subtitle = " ", max.overlaps = 20
+    )
+    
+    plotvolcano1
+    
+    ggsave(plot = plotvolcano1, filename = paste0("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Delta/",identity.1,"Vs", identity.2, "Volcano DEGs Hs-Delta updated.tiff"), width = 12, height = 8, dpi = 600)
+```
+

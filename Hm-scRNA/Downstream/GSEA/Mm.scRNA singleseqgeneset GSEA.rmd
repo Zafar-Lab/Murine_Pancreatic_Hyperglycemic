@@ -1,0 +1,156 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(devtools)
+#install_github("arc85/singleseqgset")
+library(singleseqgset)
+#install.packages("msigdbr")
+library(msigdbr)
+library(heatmap3)
+library(ggplot2)
+library(fgsea)
+
+# c  <- gmtPathways("F:\\Jayesh_Human islets\\Human Islets atlas-HIRN\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/m2.cp.v0.3.symbols.gmt")
+# d  <- gmtPathways("F:\\Jayesh_Human islets\\Human Islets atlas-HIRN\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/m2.all.v0.3.symbols.gmt")
+# e  <- gmtPathways("F:\\Jayesh_Human islets\\Human Islets atlas-HIRN\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/m5.all.v0.3.symbols.gmt")
+# f  <- gmtPathways("F:\\Jayesh_Human islets\\Human Islets atlas-HIRN\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/mh.all.v0.3.symbols.gmt")
+# 
+# genesets <- c(c, d, e, f)
+
+```
+
+
+```{r}
+
+h.all <- gmtPathways("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/GSEA repository/h.all.v7.5.1.symbols.gmt")
+kegg <- gmtPathways("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/GSEA repository/c2.cp.kegg.v7.5.1.symbols.gmt")
+c1 <- gmtPathways("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/GSEA repository/c1.all.v7.5.1.symbols.gmt")
+c2<- gmtPathways("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/GSEA repository/c2.all.v7.5.1.symbols.gmt")
+reactome <- gmtPathways("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/GSEA repository/c2.cp.reactome.v7.5.1.symbols.gmt")
+wikipath <- gmtPathways("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/GSEA repository/c2.cp.wikipathways.v7.5.1.symbols.gmt")
+c5 <- gmtPathways("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/GSEA repository/c5.all.v7.5.1.symbols.gmt")
+
+genesets <- c(h.all, kegg, c1, c2, reactome, wikipath, c5)
+```
+
+
+```{r}
+#HIRN_data <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/Mm.seuratSC.scran norm.detailed JT.rds")
+
+```
+
+
+```{r}
+cluster.name <- "Hs-Alpha 1"
+sheet_name <- "Hs.Alpha 1"
+GSEA.sheet.sorted <- readxl::read_excel("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/HIRN GSEA subpop condition.xlsx", sheet = "Hs.Alpha 1 Obese")
+idents.to.use <- c("Hs-Alpha 1_Control", "Hs-Alpha 1_Obese", "Hs-Alpha 1_T2D")
+#########################################################################################################################################
+genesets.subset <- genesets[unique(GSEA.sheet.sorted$pathway)]
+
+
+
+HIRN_data_subset <- subset(HIRN_data, cellchat_states.detailed == cluster.name) 
+
+logfc.data <- logFC(cluster.ids= HIRN_data_subset@meta.data$cellchat_states.detailed.condition ,expr.mat=HIRN_data_subset@assays$RNA@data)
+
+names(logfc.data)
+
+gse.res <- wmw_gsea(expr.mat=HIRN_data_subset@assays$RNA@data, cluster.cells=logfc.data[[1]],log.fc.cluster=logfc.data[[2]],gene.sets= genesets.subset)
+```
+
+```{r}
+
+res.stats <- gse.res[["GSEA_statistics"]]
+res.pvals <- gse.res[["GSEA_p_values"]]
+
+res.pvals <- apply(res.pvals,2,p.adjust,method="fdr") #Correct for multiple comparisons
+
+res.stats[order(res.stats[,1],decreasing=TRUE)[1:5],] #Top gene sets enriched by z scores
+
+res.pvals[order(res.stats[,1],decreasing=TRUE)[1:5],] #Top gene sets by p values
+
+res.stats.subset <- res.stats[ ,idents.to.use]
+res.pvals.subset <- res.pvals[,idents.to.use]
+#Plot the z scores with heatmap3
+
+
+p2 <- pheatmap::pheatmap(res.stats.subset, scale = "row", border_color = "black", cluster_rows = T, cluster_cols = F, treeheight_row = 0, main = paste0("GSEA: ",cluster.name, " (scaled Z score)"), fontsize_row = 8, angle_col = 315, fontsize_col = 8)
+
+```
+
+
+```{r}
+#ggsave(p2, "E:/Islet Project/Updated data 20012023/Sheets/GSEA_pathway_list_mouse.xlsx")
+```
+
+
+```{r}
+
+library(reshape2)
+
+res.stats.subset <- res.stats[ ,idents.to.use]
+
+
+df1 <- melt(data = res.pvals.subset, na.rm = F)
+colnames(df1) <- c("Pathways", "Populations", "P val.")
+df1$path_pop <- paste0(df1$Pathways," ",df1$Populations)
+
+
+df2 <- melt(data = as.matrix(res.stats.subset), na.rm = F)
+colnames(df2) <- c("Pathways", "Populations", "Z score")
+df2$path_pop <- paste0(df2$Pathways," ",df2$Populations)
+
+
+df3 <- merge(df1, df2, by = "path_pop")
+```
+
+```{r}
+df <- data.frame(
+  groups = c(rep("group1",3),rep("group2",3),rep("group3",3)),
+  genes = rep(c("gene1","gene2","gene3"),3),
+  exp = rnorm(9,0,10)
+)
+
+
+ggplot(df3, aes(x = Populations.y, y = Pathways.y, color = `Z score`, size = -`P val.`)) +
+  geom_point(stat = 'identity') +
+  xlab("") + ylab("") + ggtitle(paste0("GSEA: ", cluster.name)) +
+  theme_bw()
+```
+
+```{r}
+dot_plot <- ggplot(df3, aes(x=Populations.y, y=Pathways.y)) +
+  geom_point(aes(size = `P val.`, fill = `Z score`, scale = "row"), color="black", shape=21) +
+  scale_size("% detected", range = c(0,6)) +
+  scale_fill_gradientn(colours = as.factor(c("black", "blue", "yellow", "orange", "pink", "red")),
+                       guide = guide_colorbar(ticks.colour = "black",
+                                              frame.colour = "black"),
+                       name = "Z score") +
+  ylab("Cluster") + xlab("") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size=10, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=12, color="black"),
+        axis.title = element_text(size=14))
+```
+
+########################################################################################################################################
+
+#Creating custom geneset for the pathway analysis with the gsea pathway list form fgsea
+```{r}
+
+gsea_sheet <- GSEA.sheet.sorted
+
+genesets <- list()
+for (i in 1:length(gsea_sheet$genes)) {
+genes <- list(gsea_sheet$genes[i])
+  genesets <- append(genesets, genes)
+}
+
+names(genesets) <- c(gsea_sheet$pathway)
+genesets.subset <- genesets
+```

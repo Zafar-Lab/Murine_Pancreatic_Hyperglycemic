@@ -1,0 +1,259 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+####################################################################################################################################
+
+```{r}
+library(Seurat)
+library(harmony)
+library(monocle3)
+
+```
+
+
+```{r}
+
+Hs.Endocrine <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN Endocrine0.12res JT.rds")
+condition_for_analysis <- "T2D"
+metadata_column <- "subtype.detailed"
+column_for_batches <- "hpap_id"
+root_state <- "Hs-Pancreatic progenitor"
+
+progenitor.population <- readRDS("H:/LAB 20 IIT K/M.TECH THESIS/Hs.islets_prgenitor_filtered.rds")
+
+Seurat_object <- subset(Hs.Endocrine, condition == "T2D")
+
+Seurat_object <- subset(Seurat_object,
+                        #subtype.detailed == "Hs-Alpha 1"| 
+subtype.detailed == "Hs-Alpha 2"| subtype.detailed == "Hs-Beta 1"
+|subtype.detailed == "Hs-Beta 2" | subtype.detailed == "Hs-Beta 3"
+)
+
+
+progenitor.genes <- data.frame(rownames(progenitor.population))
+Hs.Endocrine.genes <- data.frame(rownames(Hs.Endocrine))
+
+common.genes <- intersect(progenitor.genes$rownames.progenitor.population., Hs.Endocrine.genes$rownames.Hs.Endocrine.)
+
+
+Seurat_object <- merge(Seurat_object[common.genes, ], progenitor.population[common.genes, ])
+
+
+unique(Seurat_object$subtype.detailed.condition)
+
+Seurat_object <- NormalizeData    
+Seurat_object <- FindVariableFeatures(Seurat_object)
+Seurat_object <- ScaleData(Seurat_object)
+Seurat_object <- RunPCA(Seurat_object)
+Seurat_object <- RunHarmony(Seurat_object, group.by.vars = "hpap_id")
+Seurat_object <- RunUMAP(Seurat_object, dims = 1:20, reduction = "harmony")
+Seurat_object <- SetIdent(Seurat_object, value = Seurat_object$subtype.detailed)
+
+DimPlot(Seurat_object)
+
+unique(Seurat_object$condition)
+unique(Seurat_object$subtype.detailed)
+
+saveRDS(Seurat_object, "H:/LAB 20 IIT K/M.TECH THESIS/seurat.beta1_alpha2_trajec_T2D.rds")
+```
+
+
+```{r}
+
+cds <- SeuratWrappers::as.cell_data_set(Seurat_object, assay = "RNA")
+cds <- estimate_size_factors(cds)
+
+cds <- preprocess_cds(cds, num_dim = 100)
+cds <- align_cds(cds, alignment_group = column_for_batches)
+
+cds <- reduce_dimension(cds)
+
+plot_cells(cds,  color_cells_by = "subtype.detailed")
+
+cds <- cluster_cells(cds)
+#cds <- learn_graph(cds, use_partition = T)
+cds <- learn_graph(cds)
+
+plot1 <- plot_cells(cds = cds,
+           color_cells_by = metadata_column,
+           label_cell_groups=T,
+           label_leaves=TRUE,
+           label_branch_points=TRUE,
+           graph_label_size=3, group_label_size = 4, labels_per_group = 1)
+
+
+# a helper function to identify the root principal points:
+
+get_earliest_principal_node <- function(cds, time_bin= root_state){
+  cell_ids <- which(colData(cds)[, metadata_column] == time_bin)
+  
+  closest_vertex <- cds@principal_graph_aux[["UMAP"]]$pr_graph_cell_proj_closest_vertex
+  closest_vertex <- as.matrix(closest_vertex[colnames(cds), ])
+  root_pr_nodes <- igraph::V(principal_graph(cds)[["UMAP"]])$name[as.numeric(names
+  (which.max(table(closest_vertex[cell_ids,]))))]
+  
+  root_pr_nodes
+}
+
+
+cds <- order_cells(cds, root_pr_nodes=get_earliest_principal_node(cds))
+
+
+plot2 <- plot_cells(cds,
+           color_cells_by = "pseudotime",
+           label_cell_groups=FALSE,
+           label_leaves=FALSE,
+           label_branch_points=FALSE,
+           graph_label_size=1.5)
+
+plot1|plot2
+
+
+#saveRDS(cds, file = "H:/LAB 20 IIT K/M.TECH THESIS/cds.beta2_beta1_alpha2_trajec_T2Dfinal.rds")
+cds <- readRDS("H:/LAB 20 IIT K/M.TECH THESIS/cds.beta2_beta1_alpha2_trajec_T2Dfinal.rds")
+```
+
+```{r}
+# cds_subset <- choose_cells(cds)
+# 
+# cds_subset <- cluster_cells(cds_subset)
+# #cds_subset <- learn_graph(cds_subset, use_partition = T)
+# cds_subset <- learn_graph(cds_subset)
+# 
+# plot1 <- plot_cells(cds_subset,
+#            color_cells_by = metadata_column,
+#            label_cell_groups=T,
+#            label_leaves=TRUE,
+#            label_branch_points=TRUE,
+#            graph_label_size=3, group_label_size = 4, labels_per_group = 1)
+# 
+# 
+# # a helper function to identify the root principal points:
+# 
+# get_earliest_principal_node <- function(cds_subset, time_bin= root_state){
+#   cell_ids <- which(colData(cds_subset)[, metadata_column] == time_bin)
+#   
+#   closest_vertex <- cds_subset@principal_graph_aux[["UMAP"]]$pr_graph_cell_proj_closest_vertex
+#   closest_vertex <- as.matrix(closest_vertex[colnames(cds_subset), ])
+#   root_pr_nodes <- igraph::V(principal_graph(cds_subset)[["UMAP"]])$name[as.numeric(names
+#   (which.max(table(closest_vertex[cell_ids,]))))]
+#   
+#   root_pr_nodes
+# }
+# 
+# 
+# cds_subset <- order_cells(cds_subset, root_pr_nodes=get_earliest_principal_node(cds_subset))
+# 
+# 
+# plot2 <- plot_cells(cds_subset,
+#            color_cells_by = "pseudotime",
+#            label_cell_groups=FALSE,
+#            label_leaves=FALSE,
+#            label_branch_points=FALSE,
+#            graph_label_size=1.5)
+# 
+# plot1|plot2
+```
+
+
+```{r}
+cds_3d <- reduce_dimension(cds, max_components = 3)
+cds_3d <- cluster_cells(cds_3d)
+cds_3d <- learn_graph(cds_3d)
+cds_3d <- order_cells(cds_3d, root_pr_nodes=get_earliest_principal_node(cds_3d))
+
+cds_3d <- order_cells(cds_3d)
+cds_3d <- readRDS("H:/LAB 20 IIT K/M.TECH THESIS/cds_3D_trajectory final.rds")
+#saveRDS(cds_3d, file = "H:/LAB 20 IIT K/M.TECH THESIS/cds_3D_trajectory final.rds")
+
+cds_3d_plot_obj1 <- plot_cells_3d(cds_3d, color_cells_by="pseudotime")
+
+cds_3d_plot_obj <- plot_cells_3d(cds_3d, color_cells_by="subtype.detailed",color_palette = c("Orange",  "Yellow", "Blue", "Cyan", "Green", "Red"))
+```
+
+```{r}
+cds_3d_plot_obj1
+cds_3d_plot_obj
+```
+
+
+
+
+```{r}
+  plot_cells(cds, genes = c("INS", "CD99"))
+```
+Finding genes that change with pseudotime
+```{r}
+cds_subset <- choose_cells(cds)
+
+cds_pt_res <- graph_test(cds = cds_subset, neighbor_graph = "principal_graph", cores = 8)
+cds_pt_res <- na.omit(cds_pt_res)
+cds_pt_res <- cds_pt_res[cds_pt_res$status == "OK" & cds_pt_res$q_value < 0.05, ]
+View(cds_pt_res)
+cds_pt_res <- cds_pt_res[order(-cds_pt_res$morans_test_statistic), ]
+
+```
+
+
+```{r}
+
+#saveRDS(cds_subset, file = "H:/LAB 20 IIT K/M.TECH THESIS/cds_subset to check genes in pseudotime.rds" )
+cds_subset <- readRDS("H:/LAB 20 IIT K/M.TECH THESIS/cds_subset to check genes in pseudotime.rds")
+
+AFD_genes <- c("INS", "PRSS2", "PRSS1") #
+AFD_genes <- c("UCHL1",  "IGFBP2", "GADD45B"#, "TTR"
+               )
+
+All_genes <- c("INS", "MAFA", "RBP4", "PDX1", "UCHL1", "CEBPD", "TTR",  "GC", "CHGA", "CHGB", "IGFBP2", "CD99")
+
+All_genes <- c("FABP5", "CRYBA2", "CLU", "PKIB",    "SERPINA1", "NDUFA13", "CALM1", "CALM2", "UQCC2",  "CCNB2", "IER3", "ALDH1A1")
+
+All_genes <- c("PRSS1", "PRSS2", "CLPS", "REG1A", "CTRB1", "CTRB2")
+
+All_genes <- c("SOD1", "PRDX2", "FOS", "PLIN3", "LDHA", "FABP5", "HADH", "ALDH1A1", "NDUFA13", "NDUFB2", "ADCYAP1", "NDUFB8")
+All_genes <- c("GAPDH")
+
+#AFD_genes <- head(cds_pt_res$gene_short_name)
+for (i in 1:length(All_genes)) {
+  
+AFD_genes <- All_genes[i]
+ 
+#rowData(cds_subset)$gene_short_name <- rowData(cds)@rownames
+
+AFD_lineage_cds <- cds_subset[rowData(cds_subset)$gene_short_name %in% AFD_genes,
+                       #colData(cds)$cell.type %in% c("AFD")
+                       ]
+
+#AFD_lineage_cds <- estimate_size_factors(AFD_lineage_cds) 
+
+p1 <- plot_genes_in_pseudotime(AFD_lineage_cds#,
+                         #color_cells_by="subtype.detailed",
+                         #min_expr= 0, cell_size = 0,
+                         #trend_formula = "~ splines::ns(pseudotime, df=3)"
+                         , 
+                         )
+
+p1
+
+ggsave(plot = p1, path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Pseudotime analysis Monocle 3/More genes/", filename = paste0(AFD_genes, " in pseudotime.tiff"), device = "tiff", height = 4, width = 5)
+}
+```
+
+```{r}
+#saveRDS(cds, "H:/LAB 20 IIT K/M.TECH THESIS/cds.beta1_alpha2_trajec_T2D_with estimatesizefactors.rds")
+cds_sizefac <- readRDS("H:/LAB 20 IIT K/M.TECH THESIS/cds.beta1_alpha2_trajec_T2D_with estimatesizefactors.rds")
+```
+
+#DE genes between Hs.Alpha2 and Hs.Beta1
+```{r}
+Hs.Endocrine <- SetIdent(Hs.Endocrine, value = Hs.Endocrine$subtype.detailed.condition)
+
+markers <- FindMarkers(Hs.Endocrine, ident.1 = "Hs-Alpha 2_T2D", ident.2 = "Hs-Beta 1_T2D")
+
+View(markers)
+
+marker1 <- markers[markers$avg_log2FC > 0.4|markers$avg_log2FC< -0.4, ]
+```

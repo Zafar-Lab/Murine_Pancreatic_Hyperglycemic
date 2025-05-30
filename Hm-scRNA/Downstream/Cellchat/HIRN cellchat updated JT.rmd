@@ -1,0 +1,416 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+HIRN_data <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN seurat processed and annotated wo juvenile JT.rds")
+
+HIRN_data$old_names <- HIRN_data$cellchat_states.detailed
+
+
+HIRN_data <- SetIdent(HIRN_data,value = HIRN_data$old_names)
+
+
+unique(HIRN_data$old_names)
+
+saveRDS(HIRN_data, "H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN seurat processed and annotated wo juvenile JT.rds")
+
+D1 <- DimPlot(HIRN_data)
+ggsave(plot = D1, filename = "HIRN_data Dimplot detailed.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-First fig/",height = 5, width = 10, device = "tiff", dpi = 600)
+
+D2 <- DimPlot(HIRN_data, split.by = "condition")+NoLegend()
+ggsave(plot = D2, filename = "HIRN_data Dimplot split.by.cond detailed.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-First fig/",height = 5, width = 15, device = "tiff", dpi = 600)
+
+D3 <- DimPlot(HIRN_data, label = T, repel = T, label.size = 2.5)
+ggsave(plot = D3, filename = "HIRN_data Dimplot labeled detailed.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-First fig/",height = 5, width = 10, device = "tiff", dpi = 600)
+```
+
+```{r}
+HIRN_data@meta.data$cellchat_states.detailed <- 0
+
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Alpha 1", "cellchat_states.detailed"] <- "Hs-Alpha 1"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Alpha 2", "cellchat_states.detailed"] <- "Hs-Alpha 2"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Beta 1", "cellchat_states.detailed"] <- "Hs-Beta 1"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Beta 2", "cellchat_states.detailed"] <- "Hs-Beta 2"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Beta 3", "cellchat_states.detailed"] <- "Hs-Beta 3"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Delta 1", "cellchat_states.detailed"] <- "Hs-Delta 1"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Delta 2", "cellchat_states.detailed"] <- "Hs-Delta 2"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Gamma", "cellchat_states.detailed"] <- "Hs-Gamma"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Acinar", "cellchat_states.detailed"] <- "Hs-Acinar"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Activated PSCs", "cellchat_states.detailed"] <- "Hs-Activated PSCs"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Quiescent PSCs", "cellchat_states.detailed"] <- "Hs-Quiescent PSCs"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-PDCs", "cellchat_states.detailed"] <- "Hs-PDCs"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Endothelial 1", "cellchat_states.detailed"] <- "Hs-Metabolically active ECs"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Endothelial 2", "cellchat_states.detailed"] <- "Hs-Vascular ECs"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Endothelial 3", "cellchat_states.detailed"] <- "Hs-Proinflammatory ECs"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Endothelial 4", "cellchat_states.detailed"] <- "Hs-Immune regulatory ECs"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Immune 1", "cellchat_states.detailed"] <- "Hs-Granulocytes"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Immune 2", "cellchat_states.detailed"] <- "Hs-Macrophages"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Immune 3", "cellchat_states.detailed"] <- "Hs-APCs"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Immune 4", "cellchat_states.detailed"] <- "Hs-T cells"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% "Hs-Immune 4", "cellchat_states.detailed"] <- "Hs-T cells"
+HIRN_data@meta.data[HIRN_data@meta.data$old_names %in% NA, "cellchat_states.detailed"] <- "Hs-Unclassified"
+
+
+HIRN_data<-SetIdent(HIRN_data, value = HIRN_data$cellchat_states.detailed)
+
+ levels(HIRN_data) <- c( "Hs-Beta 1", "Hs-Beta 2", "Hs-Beta 3", "Hs-Alpha 1", "Hs-Alpha 2", "Hs-Delta 1", "Hs-Delta 2", "Hs-Gamma", "Hs-Acinar","Hs-PDCs", "Hs-Activated PSCs", "Hs-Quiescent PSCs", "Hs-Vascular ECs", "Hs-Metabolically active ECs", "Hs-Proinflammatory ECs", "Hs-Immune regulatory ECs", "Hs-T cells","Hs-Granulocytes","Hs-Macrophages", "Hs-APCs", "Hs-Unclassified")
+
+HIRN_data$cellchat_states.detailed.condition <- paste0(HIRN_data$cellchat_states.detailed,"_",HIRN_data$condition)
+
+unique(HIRN_data$cellchat_states.detailed.condition)
+```
+
+
+library(CellChat)
+cellchat <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN_cellchat_states.detailed.rds")
+
+```{r}
+library(CellChat)
+cellchat <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN_cellchat_states.detailed.rds")
+
+cellchat@meta
+```
+
+####################### Changing labels in cellchat ################################################
+Hi @ruohuchengxhe , you should do it levels(cellchat@meta$labels)[levels(cellchat@meta$labels) =='Mast cells' ] <- 'Mc 4' cellchat <- setIdent(cellchat, ident.use = "cell_type") # set "cell_type" as default cell identity
+
+```{r}
+levels(cellchat@meta$subtype2_detailed)[levels(cellchat@meta$subtype2_detailed) =="Hs-Alpha 1" ] <- "Hs-Alpha 1"
+levels(cellchat@meta$subtype2_detailed)[levels(cellchat@meta$subtype2_detailed) =="Hs-Alpha 2" ] <- "Hs-Alpha 2"
+levels(cellchat@meta$subtype2_detailed)[levels(cellchat@meta$subtype2_detailed) =="Hs-Beta 1" ] <- "Hs-Beta 1"
+levels(cellchat@meta$subtype2_detailed)[levels(cellchat@meta$subtype2_detailed) =="Hs-Beta 2" ] <- "Hs-Beta 2"
+levels(cellchat@meta$subtype2_detailed)[levels(cellchat@meta$subtype2_detailed) =="Hs-Delta 1" ] <- "Hs-Delta 1"
+levels(cellchat@meta$subtype2_detailed)[levels(cellchat@meta$subtype2_detailed) =="Hs-Delta 2" ] <- "Hs-Delta 2"
+levels(cellchat@meta$subtype2_detailed)[levels(cellchat@meta$subtype2_detailed) =="Hs-Acinar" ] <- "Hs-Acinar"
+levels(cellchat@meta$subtype2_detailed)[levels(cellchat@meta$subtype2_detailed) =="Hs-Activated PSCs" ] <- "Hs-Activated PSCs"
+levels(cellchat@meta$subtype2_detailed)[levels(cellchat@meta$subtype2_detailed) =="Hs-Quiescent PSCs" ] <- "Hs-Quiescent PSCs"
+levels(cellchat@meta$subtype2_detailed)[levels(cellchat@meta$subtype2_detailed) =="Hs-PDCs" ] <- "Hs-PDCs"
+levels(cellchat@meta$subtype2_detailed)[levels(cellchat@meta$subtype2_detailed) =="Hs-Endothelial 1" ] <- "Hs-Metabolically active ECs"
+levels(cellchat@meta$subtype2_detailed)[levels(cellchat@meta$subtype2_detailed) =="Hs-Endothelial 2" ] <- "Hs-Vascular ECs"
+levels(cellchat@meta$subtype2_detailed)[levels(cellchat@meta$subtype2_detailed) =="Hs-Endothelial 3" ] <- "Hs-Proinflammatory ECs"
+levels(cellchat@meta$subtype2_detailed)[levels(cellchat@meta$subtype2_detailed) =="Hs-Endothelial 4" ] <- "Hs-Immune regulatory ECs"
+levels(cellchat@meta$subtype2_detailed)[levels(cellchat@meta$subtype2_detailed) =="Hs-Immune 1" ] <- "Hs-Granulocytes"
+levels(cellchat@meta$subtype2_detailed)[levels(cellchat@meta$subtype2_detailed) =="Hs-Immune 2" ] <- "Hs-Macrophages"
+levels(cellchat@meta$subtype2_detailed)[levels(cellchat@meta$subtype2_detailed) =="Hs-Immune 3" ] <- "Hs-APCs"
+levels(cellchat@meta$subtype2_detailed)[levels(cellchat@meta$subtype2_detailed) =="Hs-Immune 4" ] <- "Hs-T cells"
+
+cellchat <- setIdent(cellchat, ident.use = "subtype2_detailed")
+```
+```{r}
+data.input <- cellchat@data
+
+```
+
+```{r}
+cellchat <- computeCommunProb(cellchat)
+
+cellchat <- filterCommunication(cellchat, min.cells = 10)
+cellchat <- computeCommunProbPathway(cellchat)
+cellchat <- aggregateNet(cellchat)
+
+```
+```{r}
+groupSize <- as.numeric(table(cellchat@idents))
+par(mfrow = c(1,2), xpd=TRUE)
+netVisual_circle(cellchat@net$count, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Number of interactions")
+netVisual_circle(cellchat@net$weight, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Interaction weights/strength") 
+```
+
+
+
+```{r}
+cellchat <- setIdent(cellchat, ident.use = "subtype2_detailed")
+cellchat@meta
+```
+
+```{r}
+cellchat@meta$old_names <- cellchat@meta$subtype2_detailed 
+
+cellchat@meta$subtype2_detailed <- 0
+
+cellchat@meta[cellchat@meta$old_names %in% "Hs-Alpha 1", "subtype2_detailed"] <- "Hs-Alpha 1"
+cellchat@meta[cellchat@meta$old_names %in% "Hs-Alpha 2", "subtype2_detailed"] <- "Hs-Alpha 2"
+cellchat@meta[cellchat@meta$old_names %in% "Hs-Beta 1", "subtype2_detailed"] <- "Hs-Beta 1"
+cellchat@meta[cellchat@meta$old_names %in% "Hs-Beta 2", "subtype2_detailed"] <- "Hs-Beta 2"
+cellchat@meta[cellchat@meta$old_names %in% "Hs-Beta 3", "subtype2_detailed"] <- "Hs-Beta 3"
+cellchat@meta[cellchat@meta$old_names %in% "Hs-Delta 1", "subtype2_detailed"] <- "Hs-Delta 1"
+cellchat@meta[cellchat@meta$old_names %in% "Hs-Delta 2", "subtype2_detailed"] <- "Hs-Delta 2"
+cellchat@meta[cellchat@meta$old_names %in% "Hs-Acinar", "subtype2_detailed"] <- "Hs-Acinar"
+cellchat@meta[cellchat@meta$old_names %in% "Hs-Activated PSCs", "subtype2_detailed"] <- "Hs-Activated PSCs"
+cellchat@meta[cellchat@meta$old_names %in% "Hs-Quiescent PSCs", "subtype2_detailed"] <- "Hs-Quiescent PSCs"
+cellchat@meta[cellchat@meta$old_names %in% "Hs-PDCs", "subtype2_detailed"] <- "Hs-PDCs"
+cellchat@meta[cellchat@meta$old_names %in% "Hs-Endothelial 1", "subtype2_detailed"] <- "Hs-Metabolically active ECs"
+cellchat@meta[cellchat@meta$old_names %in% "Hs-Endothelial 2", "subtype2_detailed"] <- "Hs-Vascular ECs"
+cellchat@meta[cellchat@meta$old_names %in% "Hs-Endothelial 3", "subtype2_detailed"] <- "Hs-Proinflammatory ECs"
+cellchat@meta[cellchat@meta$old_names %in% "Hs-Endothelial 4", "subtype2_detailed"] <- "Hs-Immune regulatory ECs"
+cellchat@meta[cellchat@meta$old_names %in% "Hs-Immune 1", "subtype2_detailed"] <- "Hs-Granulocytes"
+cellchat@meta[cellchat@meta$old_names %in% "Hs-Immune 2", "subtype2_detailed"] <- "Hs-Macrophages"
+cellchat@meta[cellchat@meta$old_names %in% "Hs-Immune 3", "subtype2_detailed"] <- "Hs-APCs"
+cellchat@meta[cellchat@meta$old_names %in% "Hs-Immune 4", "subtype2_detailed"] <- "Hs-T cells"
+
+unique(cellchat@meta$subtype2_detailed)
+
+cellchat@meta$subtype2_condition <- paste0(cellchat@meta$subtype2, "_", cellchat@meta$condition)
+```
+
+
+
+
+
+
+
+
+
+
+
+#####################################################################
+
+
+
+
+
+
+```{r}
+HIRN_data <- SetIdent(HIRN_data, value = HIRN_data$cellchat_states.detailed)
+
+data.input <- GetAssayData(HIRN_data, assay = "RNA", slot = "data") 
+
+labels <- Idents(HIRN_data)
+meta <- data.frame(group = labels, row.names = names(labels)) # create a dataframe of the cell labels
+colnames(meta)[1] <- "labels"
+
+cellchat <- createCellChat(object = data.input, meta = meta, group.by = "labels")
+
+cellchat <- setIdent(cellchat, ident.use = "labels") # set "labels" as default cell identity
+levels(cellchat@idents) <- c( "Hs-Beta 1", "Hs-Beta 2", "Hs-Beta 3", "Hs-Alpha 1", "Hs-Alpha 2", "Hs-Delta 1", "Hs-Delta 2", "Hs-Gamma", "Hs-Acinar","Hs-PDCs", "Hs-Activated PSCs", "Hs-Quiescent PSCs", "Hs-Vascular ECs", "Hs-Metabolically active ECs", "Hs-Proinflammatory ECs", "Hs-Immune regulatory ECs", "Hs-T cells","Hs-Granulocytes","Hs-Macrophages", "Hs-APCs", "Hs-Unclassified") # show factor levels of the cell labels
+#groupSize <- as.numeric(table(cellchat@idents)) # number of cells in each cell group
+CellChatDB <- CellChatDB.human # use CellChatDB.mouse if running on mouse data
+
+CellChatDB.use <- CellChatDB # simply use the default CellChatDB
+cellchat@DB <- CellChatDB.use
+cellchat <- subsetData(cellchat) # This step is necessary even if using the whole database
+future::plan("multiprocess", workers = 4) # do parallel
+cellchat <- identifyOverExpressedGenes(cellchat)
+cellchat <- identifyOverExpressedInteractions(cellchat)
+cellchat <- computeCommunProb(cellchat)
+cellchat <- filterCommunication(cellchat, min.cells = 10)
+cellchat <- computeCommunProbPathway(cellchat)
+cellchat <- aggregateNet(cellchat)
+cellchat <- netAnalysis_computeCentrality(cellchat, slot.name = "netP") 
+
+saveRDS(cellchat, "H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN_cellchat_states.detailed JT.rds")
+```
+
+```{r}
+groupSize <- as.numeric(table(cellchat@idents))
+par(mfrow = c(1,2), xpd=TRUE)
+
+netVisual_circle(cellchat@net$count, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Number of interactions", top = 0.40)
+
+netVisual_circle(cellchat@net$weight, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Interaction weights/strength", top = 0.40)
+
+```
+
+
+```{r}
+library(NMF)
+library(ggalluvial)
+
+```
+
+
+```{r}
+HIRN_data <- SetIdent(HIRN_data, value = HIRN_data$cellchat_states.detailed)
+HIRN_data <- subset(HIRN_data, cellchat_states.detailed != "Hs-Unclassified")
+
+
+HIRN_data <- SetIdent(HIRN_data, value = HIRN_data$cellchat_states.detailed.condition)
+
+data.input <- GetAssayData(HIRN_data, assay = "RNA", slot = "data") 
+
+labels <- Idents(HIRN_data)
+meta <- data.frame(group = labels, row.names = names(labels)) # create a dataframe of the cell labels
+colnames(meta)[1] <- "labels"
+
+cellchat <- createCellChat(object = data.input, meta = meta, group.by = "labels")
+
+cellchat <- setIdent(cellchat, ident.use = "labels") # set "labels" as default cell identity
+ # show factor levels of the cell labels 
+
+
+
+#groupSize <- as.numeric(table(cellchat@idents)) # number of cells in each cell group
+CellChatDB <- CellChatDB.human # use CellChatDB.mouse if running on mouse data
+
+CellChatDB.use <- CellChatDB # simply use the default CellChatDB
+cellchat@DB <- CellChatDB.use
+cellchat <- subsetData(cellchat) # This step is necessary even if using the whole database
+future::plan("multiprocess", workers = 4) # do parallel
+cellchat <- identifyOverExpressedGenes(cellchat)
+cellchat <- identifyOverExpressedInteractions(cellchat)
+
+levels(cellchat@idents) <- unique(cellchat@meta$labels)
+
+cellchat <- computeCommunProb(cellchat)
+
+cellchat  <- setIdent(cellchat, ident.use = "labels", levels = levels_ordered)
+
+
+cellchat <- filterCommunication(cellchat, min.cells = 10)
+cellchat <- computeCommunProbPathway(cellchat)
+cellchat <- aggregateNet(cellchat)
+cellchat <- netAnalysis_computeCentrality(cellchat, slot.name = "netP") 
+
+#saveRDS(cellchat, "H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN_cellchat_states.detailed.conditon updated 123 JT.rds")
+
+
+```
+
+```{r}
+
+cellchat <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN_cellchat_states.detailed JT.rds")
+cellchat <- setIdent(cellchat , ident.use = "labels")
+
+levels(cellchat@idents) <- c( "Hs-Beta 1", "Hs-Beta 2", "Hs-Beta 3", "Hs-Alpha 1", "Hs-Alpha 2", "Hs-Delta 1", "Hs-Delta 2", "Hs-Gamma", "Hs-Acinar","Hs-PDCs", "Hs-Activated PSCs", "Hs-Quiescent PSCs", "Hs-Vascular ECs", "Hs-Metabolically active ECs", "Hs-Proinflammatory ECs", "Hs-Immune regulatory ECs", "Hs-T cells","Hs-Granulocytes","Hs-Macrophages", "Hs-APCs")
+
+groupSize <- as.numeric(table(cellchat@idents))
+par(mfrow = c(1,2), xpd=TRUE)
+
+
+
+tiff(file="H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/Number of interactions.tiff",height = 12, width = 12, res = 1200, units = "in")
+#n1 <- netVisual_circle(cellchat@net$count, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Number of interactions", top = 0.40)
+n1
+dev.off()
+
+
+tiff(file="H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/Interaction weights strength.tiff",height = 12, width = 12, res = 1200, units = "in")
+n2 <- netVisual_circle(cellchat@net$weight, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Interaction weights", top = 0.40)
+n2
+dev.off()
+
+```
+
+
+
+```{r}
+
+df.net <- subsetCommunication(cellchat)
+unique(df.net$pathway_name)
+```
+ png(file="/home/aahm/Desktop/filename_heatmap.png")
+ ht <- Heatmap(...)
+ draw(ht)
+ dev.off()
+
+```{r}
+levels_ordered <- c( "Hs-Beta 1", "Hs-Beta 2", "Hs-Beta 3", "Hs-Alpha 1", "Hs-Alpha 2", "Hs-Delta 1", "Hs-Delta 2", "Hs-Gamma", "Hs-Acinar","Hs-PDCs", "Hs-Activated PSCs", "Hs-Quiescent PSCs", "Hs-Vascular ECs", "Hs-Metabolically active ECs", "Hs-Proinflammatory ECs", "Hs-Immune regulatory ECs", "Hs-T cells","Hs-Granulocytes","Hs-Macrophages", "Hs-APCs")
+
+#subset signaling pathways with ht <- netAnalysis_signalingRole_heatmap(cellchat, signaling = c("SOMATOSTATIN", "INSULIN"))
+
+
+ht1 <- netAnalysis_signalingRole_heatmap(cellchat, pattern = "outgoing", )
+ht1
+
+ht2 <- netAnalysis_signalingRole_heatmap(cellchat, pattern = "incoming")
+ht2
+
+ht1+ht2
+
+ tiff(file="H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/HIRN_data outgoing signaling network.tiff",height = 8, width = 8, res = 1200, units = "in")
+ draw(ht1)
+ dev.off()
+ 
+ 
+tiff(file="H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/HIRN_data incoming signaling network.tiff",height = 8, width = 8, res = 1200, units = "in")
+ draw(ht2)
+ dev.off()
+```
+
+
+
+
+```{r}
+selectK(cellchat, pattern = "incoming")
+nPatterns = 3
+
+cellchat <- identifyCommunicationPatterns(cellchat, pattern = "outgoing", k = nPatterns)
+R1 <- netAnalysis_river(cellchat, pattern = "outgoing")
+R1
+ggsave(plot = R1, filename = "HIRN_data outgoing pattern river.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/",height = 8, width = 16, device = "tiff", dpi = 600)
+
+
+cellchat <- identifyCommunicationPatterns(cellchat, pattern = "incoming", k = nPatterns)
+R2 <- netAnalysis_river(cellchat, pattern = "incoming")
+R2
+ggsave(plot = R2, filename = "HIRN_data incoming pattern river.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/",height = 8, width = 16, device = "tiff", dpi = 600)
+
+
+```
+
+```{r}
+netVisual_heatmap(cellchat, signaling = "INSULIN", color.heatmap = "Reds")
+```
+
+```{r}
+cellchat <- computeNetSimilarity(cellchat, type = "functional")
+cellchat <- netEmbedding(cellchat, type = "functional")
+#> Manifold learning of the signaling networks for a single dataset
+cellchat <- netClustering(cellchat, type = "functional")
+#> Classification learning of the signaling networks for a single dataset
+# Visualization in 2D-space
+E1 <- netVisual_embedding(cellchat, type = "functional", label.size = 3.5)
+ggsave(plot = E1, filename = "HIRN_data functional pathway similarity.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/",height = 6, width = 8, device = "tiff", dpi = 600)
+
+```
+
+```{r}
+cellchat <- computeNetSimilarity(cellchat, type = "structural")
+cellchat <- netEmbedding(cellchat, type = "structural")
+#> Manifold learning of the signaling networks for a single dataset
+cellchat <- netClustering(cellchat, type = "structural")
+#> Classification learning of the signaling networks for a single dataset
+# Visualization in 2D-space
+E2 <- netVisual_embedding(cellchat, type = "structural", label.size = 3.5)
+
+ggsave(plot = E2, filename = "HIRN_data structural pathway similarity.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/",height = 6, width = 8, device = "tiff", dpi = 600)
+
+```
+
+```{r}
+d1 <- netAnalysis_dot(cellchat, pattern = "outgoing")
+d2 <- netAnalysis_dot(cellchat, pattern = "incoming")
+
+ggsave(plot = d1, filename = "HIRN_data netAnalysis dot pathway outgoing.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/",height = 5, width = 9, device = "tiff", dpi = 600)
+
+ggsave(plot = d2, filename = "HIRN_data netAnalysis dot pathway incoming.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/",height = 5, width = 9, device = "tiff", dpi = 600)
+
+saveRDS(cellchat, "H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN_cellchat_states.detailed JT.rds")
+```
+
+```{r}
+
+
+writexl::write_xlsx(df.net, "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/df net subtype detailed.xlsx")
+```
+
+```{r}
+pdf(file = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/individual circle plots.pdf", width = 10, height = 10)
+
+mat <- cellchat@net$weight
+for (i in 1:nrow(mat)) {
+  mat2 <- matrix(0, nrow = nrow(mat), ncol = ncol(mat), dimnames = dimnames(mat))
+  mat2[i, ] <- mat[i, ]
+  netVisual_circle(mat2, vertex.weight = groupSize, weight.scale = T, edge.weight.max = max(mat), title.name = rownames(mat)[i])
+}
+
+dev.off()
+```
+
+```{r}
+df.net <- subsetCommunication(HIRN_cellchat_states.detailed.conditon)
+
+```
+

@@ -1,0 +1,162 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+
+Mm.ATAC <- readRDS("F:/Mm.ATAC data Jayesh/Mm-ATAC seurat 121222.rds")
+Mm.scRNA <- readRDS("F:/Mm.ATAC data Jayesh/Mm.seuratSC.detailed.rds")
+
+DefaultAssay(Mm.ATAC) <- "ATAC"
+
+#Inputting cluster name from predicted.id.cellstates.detailed
+cluster.name <- "Mm-Delta 1"
+
+#From predicted.cellstates.detailed.diet.week column
+identity.1 <- "Mm-Delta 1 HFD_8W"
+identity.2 <- "Mm-Delta 1 RC_8W"
+
+identity.3 <- "Mm-Delta 1 HFD_8W"
+identity.4 <- "Mm-Delta 1 RC_14W"
+
+identity.5 <- "Mm-Delta 1 HFD_24W"
+identity.6 <- "Mm-Delta 1 RC_30W"
+
+#From detailed.cellstates.diet column
+identity.7 <- "Mm-Delta 1_HFD"
+identity.8 <- "Mm-Delta 1_RC"
+
+#####################################################################################################################
+Mm.ATAC <- SetIdent(Mm.ATAC, value = Mm.ATAC$predicted.cellstates.detailed.diet.week)
+Da_peaks1 <- FindMarkers(Mm.ATAC, ident.1 = identity.1, ident.2 = identity.2, logfc.threshold = 0.25, only.pos = F)
+Da_peaks2 <- FindMarkers(Mm.ATAC, ident.1 = identity.3, ident.2 = identity.4, logfc.threshold = 0.25, only.pos = F)
+Da_peaks3 <- FindMarkers(Mm.ATAC, ident.1 = identity.5, ident.2 = identity.6, logfc.threshold = 0.25, only.pos = F)
+
+
+Mm.ATAC <- SetIdent(Mm.ATAC, value = Mm.ATAC$detailed.cellstates.diet)
+Da_peaks4 <- FindMarkers(Mm.ATAC, ident.1 = identity.7, ident.2 = identity.8, logfc.threshold = 0.25, only.pos = F)
+
+Da_peaks1$cluster <- identity.1
+Da_peaks2$cluster <- identity.3
+Da_peaks3$cluster <- identity.5
+Da_peaks4$cluster <- identity.7
+
+Da_peaks1$test <- paste0("FindMarkers: ",identity.1," vs ", identity.2)
+Da_peaks2$test <- paste0("FindMarkers: ",identity.3," vs ", identity.4)
+Da_peaks3$test <- paste0("FindMarkers: ",identity.5," vs ", identity.6)
+Da_peaks4$test <- paste0("FindMarkers: ",identity.7," vs ", identity.8)
+
+
+
+
+Da_peaks_sf <- rbind(Da_peaks1, Da_peaks2, Da_peaks3, Da_peaks4)
+Da_peaks_sf <- Da_peaks_sf[Da_peaks_sf$p_val < 0.05,]
+Da_peaks_sf$query_region <- rownames(Da_peaks_sf)
+
+##########################################################################################################
+
+
+Mm.ATAC.subset <- subset(Mm.ATAC, predicted.id.cellstates.detailed== cluster.name)
+Mm.ATAC.subset <- RunTFIDF(Mm.ATAC.subset)
+Mm.ATAC.subset <- FindTopFeatures(Mm.ATAC.subset, min.cutoff = 'q0')
+Mm.ATAC.subset <- RunSVD(Mm.ATAC.subset)
+
+Mm.ATAC.subset <- SetIdent(Mm.ATAC.subset, value = Mm.ATAC.subset$predicted.cellstates.detailed.diet.week)
+DefaultAssay(Mm.ATAC.subset) <- "ATAC"
+
+###########################################################################################################
+
+Da_peaks5 <- FindAllMarkers(Mm.ATAC.subset, only.pos = F, logfc.threshold = 0.25)
+colnames(Da_peaks5)[7] <- "query_region"
+Da_peaks5$test <- paste0("FindAllMarkers: ",cluster.name, "from predicted.cellstates.detailed.diet.week")
+#Da_peaks5 <- Da_peaks5[Da_peaks5$cluster == identity.1|Da_peaks5$cluster == identity.3|Da_peaks5$cluster == identity.5,]
+#Da_peaks5 <- Da_peaks5[Da_peaks5$avg_log2FC > 0,]
+
+
+
+
+Da_peaks_f <- rbind(Da_peaks5, Da_peaks_sf)
+Da_peaks_f <- Da_peaks_f[Da_peaks_f$p_val < 0.05,]
+Da_peaks_f$query_region <- rownames(Da_peaks_f)
+
+
+
+
+closest_genes_all <- ClosestFeature(Mm.ATAC, regions = Da_peaks_f$query_region)
+Da_peaks_f <- merge(Da_peaks_f, closest_genes_all, by = "query_region", all = T)
+
+
+
+
+genelist.to.plot <-  readxl::read_excel("F:\\Mm.ATAC data Jayesh\\Sheets\\Mm.ATAC genes for peak plots for clusters.xlsx", sheet = "Mm-Delta 1")
+genelist.to.plot <- na.omit(unlist(genelist.to.plot))
+
+sorted_genes <- intersect(genelist.to.plot, Da_peaks_f$gene_name)
+
+
+```
+
+```{r}
+Da_peaks_sorted <- Da_peaks_f[Da_peaks_f$gene_name  %in% sorted_genes,]
+
+Da_peaks_sorted <- unique(Da_peaks_sorted)
+unique(Da_peaks_sorted$gene_name)
+```
+
+
+
+
+```{r}
+idents.to.use <- c("Mm-Delta 1 RC_8W","Mm-Delta 1 RC_14W","Mm-Delta 1 RC_30W", "Mm-Delta 1 HFD_8W", "Mm-Delta 1 HFD_24W")
+
+Mm.scRNA.idents.to.use <- c("Mm-Delta 1 RC_8W", "Mm-Delta 1 RC_14W", "Mm-Delta 1 RC_22W", "Mm-Delta 1 HFD_8W", 
+                            "Mm-Delta 1 HFD_16W")
+
+pdf(file = paste0("G:/Mm.ATAC 221222 Jayesh/Peak plots diet_week condition/Mm.Delta 1/Mm.Delta1_test10_genes_from_metascape.pdf"), width = 17, height = 6.5)
+
+################################################################################################################################
+Mm.ATAC<- SetIdent(Mm.ATAC, value = Mm.ATAC$predicted.cellstates.detailed.diet.week)
+
+Mm.scRNA <- SetIdent(Mm.scRNA, value = Mm.scRNA$cellstates.diet.week.updated)
+levels(Mm.scRNA) <- rev(Mm.ScRNA.levels$X.1)
+
+DefaultAssay(Mm.ATAC) <- "ATAC"
+DefaultAssay(Mm.scRNA) <- "RNA"
+
+for (i in 1:length(Da_peaks_sorted$gene_name)) {#i in 1:length(Da_peaks_sorted$gene_name
+
+levels(Mm.ATAC) <- rev(levels(Mm.ATAC))
+Plot <- CoveragePlot(object = Mm.ATAC,
+  region = Da_peaks_sorted$gene_name[i],
+  extend.upstream = 1000,
+  extend.downstream = 1000,
+  #features = Da_peaks_sorted$gene_name[i], 
+  links = F, idents = idents.to.use, 
+  region.highlight = StringToGRanges(Da_peaks_sorted$query_region[i]
+                                     )
+  )+patchwork::plot_annotation(title = paste0(Da_peaks_sorted$gene_name[i]," ",Da_peaks_sorted$type[i]," ",Da_peaks_sorted$query_region[i]," ", Da_peaks_sorted$gene_biotype[i]))
+  
+levels(Mm.ATAC) <- rev(levels(Mm.ATAC))
+
+Dot.Plot <- DotPlot(Mm.ATAC, assay = "RNA", features = Da_peaks_sorted$gene_name[i],idents = idents.to.use, scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red")) +theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=8, color="black"),
+        axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6))+ ggtitle("Mm-scATAC seq RNA assay") 
+
+
+Dot.Plot1 <- DotPlot(Mm.scRNA, assay = "RNA", features = Da_peaks_sorted$gene_name[i],idents = Mm.scRNA.idents.to.use, scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red")) +theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=8, color="black"),
+        axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6))+ ggtitle( "Mm-scRNA seq RNA assay") 
+
+print(Plot+Dot.Plot + Dot.Plot1)
+
+  }
+
+  dev.off()
+  
+```
+
+
+
+
+

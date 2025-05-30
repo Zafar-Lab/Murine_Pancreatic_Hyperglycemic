@@ -1,0 +1,575 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+table(seurat$orig.ident)
+```
+```{r}
+data.input <- GetAssayData(seurat, assay = "RNA", slot = "data")
+
+labels <- Idents(seurat)
+
+meta <- data.frame(group = labels, row.names = names(labels))
+
+# Assuming 'sample_type' is already in your Seurat object's metadata
+sample_type <- seurat$orig.ident
+
+# Add the new column to the meta data frame
+meta$sample_type <- sample_type
+
+cell.use = rownames(meta)[meta$sample_type == "RC"]
+data.input = data.input[, cell.use]
+meta = meta[cell.use, ]
+unique(meta$group)
+```
+```{r}
+cellchat_RC <- createCellChat(object = data.input, meta = meta, group.by = "group")
+
+CellChatDB.use <- subsetDB(CellChatDB.mouse, search = c("Secreted Signaling", "ECM-Receptor", "Cell-Cell Contact"))
+
+cellchat_RC@DB <- CellChatDB.use
+
+cellchat_RC <- subsetData(cellchat_RC)
+cellchat_RC <- identifyOverExpressedGenes(cellchat_RC)
+cellchat_RC <- identifyOverExpressedInteractions(cellchat_RC)
+```
+```{r}
+cellchat_RC <- projectData(cellchat_RC, PPI.mouse)
+
+cellchat_RC@idents <- droplevels(cellchat_RC@idents)
+
+cellchat_RC <- computeCommunProb(cellchat_RC, raw.use = FALSE)
+
+cellchat_RC <- filterCommunication(cellchat_RC, min.cells = 10)
+
+cellchat_RC <- computeCommunProbPathway(cellchat_RC)
+
+cellchat_RC <- aggregateNet(cellchat_RC)
+
+cellchat_RC <- netAnalysis_computeCentrality(cellchat_RC, slot.name = "netP")
+
+selectK(cellchat_RC, pattern = "outgoing")
+
+nPatterns = 3
+cellchat_RC <- identifyCommunicationPatterns(cellchat_RC, pattern = "outgoing", k=nPatterns, width = 5, height = 20)
+
+selectK(cellchat_RC, pattern = "incoming")
+
+nPatterns = 3
+cellchat_RC <- identifyCommunicationPatterns(cellchat_RC, pattern = "incoming", k=nPatterns, width = 5, height = 15)
+```
+```{r}
+cellchat_RC <- computeNetSimilarity(cellchat_RC, type = "functional")
+cellchat_RC <- netEmbedding(cellchat_RC, type = "functional")
+cellchat_RC <- netClustering(cellchat_RC, type = "functional", do.parallel = FALSE)
+
+
+cellchat_RC <- computeNetSimilarity(cellchat_RC, type = "structural")
+cellchat_RC <- netEmbedding(cellchat_RC, type = "structural")
+cellchat_RC <- netClustering(cellchat_RC, type = "structural", do.parallel = FALSE)
+
+
+saveRDS(cellchat_RC, "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\combined_cellchat_RC.rds")
+
+df.net_RC <- subsetCommunication(cellchat_RC)
+
+write.csv(df.net_RC, "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\cellchat_RC_subset_communication.csv")
+```
+
+```{r}
+seurat_subset <- subset(x = seurat, idents = c("Mm-Beta 4", "Mm-Beta 5"), invert = TRUE)
+
+data.input <- GetAssayData(seurat_subset, assay = "RNA", slot = "data")
+
+labels <- Idents(seurat_subset)
+
+meta <- data.frame(group = labels, row.names = names(labels))
+
+# Assuming 'sample_type' is already in your Seurat object's metadata
+sample_type <- seurat_subset$orig.ident
+
+# Add the new column to the meta data frame
+meta$sample_type <- sample_type
+
+cell.use = rownames(meta)[meta$sample_type == "HFD"]
+data.input = data.input[, cell.use]
+meta = meta[cell.use, ]
+unique(meta$group)
+```
+```{r}
+cellchat_HFD <- createCellChat(object = data.input, meta = meta, group.by = "group")
+
+CellChatDB.use <- subsetDB(CellChatDB.mouse, search = c("Secreted Signaling", "ECM-Receptor", "Cell-Cell Contact"))
+
+cellchat_HFD@DB <- CellChatDB.use
+
+cellchat_HFD <- subsetData(cellchat_HFD)
+cellchat_HFD <- identifyOverExpressedGenes(cellchat_HFD)
+cellchat_HFD <- identifyOverExpressedInteractions(cellchat_HFD)
+```
+```{r}
+cellchat_HFD <- projectData(cellchat_HFD, PPI.mouse)
+
+cellchat_HFD@idents <- droplevels(cellchat_HFD@idents)
+cellchat_HFD@idents <- droplevels(cellchat_HFD@idents[cellchat_HFD@idents != "Mm-Beta 4"])
+cellchat_HFD@idents <- droplevels(cellchat_HFD@idents[cellchat_HFD@idents != "Mm-Beta 5"])
+
+all(levels(cellchat_RC@idents) == levels(cellchat_HFD@idents))
+
+
+cellchat_HFD <- computeCommunProb(cellchat_HFD, raw.use = FALSE)
+
+cellchat_HFD <- filterCommunication(cellchat_HFD, min.cells = 10)
+
+cellchat_HFD <- computeCommunProbPathway(cellchat_HFD)
+
+cellchat_HFD <- aggregateNet(cellchat_HFD)
+
+cellchat_HFD <- netAnalysis_computeCentrality(cellchat_HFD, slot.name = "netP")
+
+selectK(cellchat_HFD, pattern = "outgoing")
+
+nPatterns = 4
+cellchat_HFD <- identifyCommunicationPatterns(cellchat_HFD, pattern = "outgoing", k=nPatterns, width = 5, height = 15)
+
+selectK(cellchat_HFD, pattern = "incoming")
+
+nPatterns = 4
+cellchat_HFD <- identifyCommunicationPatterns(cellchat_HFD, pattern = "incoming", k=nPatterns, width = 5, height = 15)
+```
+```{r}
+cellchat_HFD <- computeNetSimilarity(cellchat_HFD, type = "functional")
+cellchat_HFD <- netEmbedding(cellchat_HFD, type = "functional")
+cellchat_HFD <- netClustering(cellchat_HFD, type = "functional", do.parallel = FALSE)
+
+
+cellchat_HFD <- computeNetSimilarity(cellchat_HFD, type = "structural")
+cellchat_HFD <- netEmbedding(cellchat_HFD, type = "structural")
+cellchat_HFD <- netClustering(cellchat_HFD, type = "structural", do.parallel = FALSE)
+
+saveRDS(cellchat_HFD, "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\combined_cellchat_HFD.rds")
+
+df.net_HFD <- subsetCommunication(cellchat_HFD)
+
+write.csv(df.net_HFD, "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\cellchat_HFD_subset_communication.csv")
+```
+
+
+```{r}
+object.list <- list(RC = cellchat_RC, HFD = cellchat_HFD)
+
+names(object.list)
+
+cellchat_merged <- mergeCellChat(object.list, add.names = names(object.list))
+
+cellchat_merged
+```
+```{r}
+plo1 <- rankNet(cellchat_merged, mode = "comparison", stacked = T, do.stat = TRUE)
+plot2 <- rankNet(cellchat_merged, mode = "comparison", stacked = F, do.stat = TRUE)
+
+ggsave(plot = plo1, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\combined_signaling_pathways_comparison.tiff", units = "in", height = 10, width = 9, dpi = 300)
+```
+
+```{r}
+gg1 <- compareInteractions(cellchat_merged, show.legend = F, group = c(1,2))
+gg2 <- compareInteractions(cellchat_merged, show.legend = F, group = c(1,2), measure = "weight")
+gg <- gg1 + gg2
+
+ggsave(plot = gg, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\interaction_strength.tiff", units = "in", height = 7, width = 7, dpi = 300)
+```
+
+
+```{r}
+#Differential number of interactions
+
+par(mfrow = c(1,2), xpd=TRUE)
+gg3 <- netVisual_diffInteraction(cellchat_merged, weight.scale = T)
+gg4 <- netVisual_diffInteraction(cellchat_merged, weight.scale = T, measure = "weight")
+
+ggsave(plot = gg4, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\differential_interaction_strength.tiff", units = "in", height = 7, width = 7, dpi = 300)
+
+gg5 <- netVisual_heatmap(cellchat_merged)
+#> Do heatmap based on a merged object
+gg6 <- netVisual_heatmap(cellchat_merged, measure = "weight")
+#> Do heatmap based on a merged object
+gg_a <- gg5 + gg6
+
+ggsave(plot = gg5, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\heatmap_relative_values.tiff", units = "in", height = 7, width = 8, dpi = 300)
+ggsave(plot = gg6, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\heatmap_interaction_strength.tiff", units = "in", height = 7, width = 8, dpi = 300)
+
+```
+
+```{r}
+weight.max <- getMaxWeight(object.list, attribute = c("idents","count"))
+par(mfrow = c(1,2), xpd=TRUE)
+for (i in 1:length(object.list)) {
+  netVisual_circle(object.list[[i]]@net$count, weight.scale = T, label.edge= F, edge.weight.max = weight.max[2], edge.width.max = 12, title.name = paste0("Number of interactions - ", names(object.list)[i]))
+}
+```
+```{r}
+#Compare the major sources and targets in 2D space
+
+num.link <- sapply(object.list, function(x) {rowSums(x@net$count) + colSums(x@net$count)-diag(x@net$count)})
+weight.MinMax <- c(min(num.link), max(num.link)) # control the dot size in the different datasets
+gg <- list()
+for (i in 1:length(object.list)) {
+  gg[[i]] <- netAnalysis_signalingRole_scatter(object.list[[i]], title = names(object.list)[i], weight.MinMax = weight.MinMax)
+}
+#> Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
+#> Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
+abcd <- patchwork::wrap_plots(plots = gg)
+
+ggsave(plot = abcd, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\major_source_target.tiff", units = "in", height = 8, width = 15, dpi = 300)
+```
+
+```{r}
+gg_b <- netAnalysis_signalingChanges_scatter(cellchat_merged, idents.use = "Mm-Beta 2")
+
+ggsave(plot = gg_b, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\Signaling_beta2.tiff", units = "in", height = 6, width = 8, dpi = 300)
+
+gg_c <- netAnalysis_signalingChanges_scatter(cellchat_merged, idents.use = "Mm-Beta 1")
+
+ggsave(plot = gg_c, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\Signaling_beta1.tiff", units = "in", height = 6, width = 8, dpi = 300)
+
+gg_d <- netAnalysis_signalingChanges_scatter(cellchat_merged, idents.use = "Mm-M1 macrophages")
+
+ggsave(plot = gg_d, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\Signaling_M1_macrophages.tiff", units = "in", height = 6, width = 8, dpi = 300)
+```
+
+
+```{r}
+library(ComplexHeatmap)
+
+i = 1
+# combining all the identified signaling pathways from different datasets 
+pathway.union <- union(object.list[[i]]@netP$pathways, object.list[[i+1]]@netP$pathways)
+ht1 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i], width = 7, height = 25)
+ht2 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+1], width = 7, height = 25)
+heatmap_outgoing <- draw(ht1 + ht2, ht_gap = unit(0.7, "cm"))
+
+
+ggsave(plot = heatmap_outgoing, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\heatmap_outgoing_signaling.tiff", units = "in", dpi = 300)
+
+#incoming signaling patterns
+
+ht3 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i], width = 7, height = 25, color.heatmap = "GnBu")
+ht4 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i+1], width = 7, height = 25, color.heatmap = "GnBu")
+heatmap_incoming <- draw(ht3 + ht4, ht_gap = unit(0.7, "cm"))
+```
+
+```{r}
+ht5 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "all", signaling = pathway.union, title = names(object.list)[i], width = 7, height = 25, color.heatmap = "OrRd")
+ht6 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "all", signaling = pathway.union, title = names(object.list)[i+1], width = 7, height = 25, color.heatmap = "OrRd")
+heatmap_overall <- draw(ht5 + ht6, ht_gap = unit(0.7, "cm"))
+```
+```{r}
+#Upregulated and downregulated LR pairs
+netVisual_bubble(cellchat_merged, sources.use = "Mm-Beta 1", targets.use = c(1:26),  comparison = c(1, 2), angle.x = 45)
+netVisual_bubble(cellchat_merged, sources.use = "Mm-Beta 2", targets.use = c(1:26),  comparison = c(1, 2), angle.x = 45)
+
+gg_up <- netVisual_bubble(cellchat_merged, sources.use = "Mm-Beta 1", targets.use = c(1:26),  comparison = c(1, 2), max.dataset = 2, title.name = "Increased signaling in HFD", angle.x = 45, remove.isolate = T)
+#> Comparing communications on a merged object
+
+gg_down <- netVisual_bubble(cellchat_merged, sources.use = "Mm-Beta 1", targets.use = c(1:26),  comparison = c(1, 2), max.dataset = 1, title.name = "Decreased signaling in HFD", angle.x = 45, remove.isolate = T)
+#> Comparing communications on a merged object
+
+gg_LR <- (gg_up + gg_down)
+
+netVisual_bubble(cellchat_merged, sources.use = "Mm-Beta 1", targets.use = c("Mm-M1 macrophages", "Mm-M2 macrophages"),  comparison = c(1, 2), angle.x = 45)
+
+netVisual_bubble(cellchat_merged, sources.use = "Mm-Beta 2", targets.use = c("Mm-M1 macrophages", "Mm-M2 macrophages"),  comparison = c(1, 2), angle.x = 45)
+
+saveRDS(cellchat_merged, "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\combined_cellchat_merged.rds")
+```
+
+
+```{r}
+#Dysfunctional analysis by differential expression
+
+# define a positive dataset, i.e., the dataset with positive fold change against the other dataset
+pos.dataset = "HFD"
+
+# define a char name used for storing the results of differential expression analysis
+features.name = pos.dataset
+
+# perform differential expression analysis
+cellchat_merged <- identifyOverExpressedGenes(cellchat_merged, group.dataset = "datasets", pos.dataset = pos.dataset, features.name = features.name, only.pos = FALSE, thresh.pc = 0.1, thresh.fc = 0.1, thresh.p = 1)
+
+#> Use the joint cell labels from the merged CellChat object
+# map the results of differential expression analysis onto the inferred cell-cell communications to easily manage/subset the ligand-receptor pairs of interest
+net <- netMappingDEG(cellchat_merged, features.name = features.name)
+
+# extract the ligand-receptor pairs with upregulated ligands in LS
+net.up <- subsetCommunication(cellchat_merged, net = net, datasets = "HFD",ligand.logFC = 0.2, receptor.logFC = NULL)
+
+# extract the ligand-receptor pairs with upregulated ligands and upregulated recetptors in NL, i.e.,downregulated in LS
+net.down <- subsetCommunication(cellchat_merged, net = net, datasets = "RC",ligand.logFC = -0.1, receptor.logFC = -0.1)
+
+gene.up <- extractGeneSubsetFromPair(net.up, cellchat_merged)
+gene.down <- extractGeneSubsetFromPair(net.down, cellchat_merged)
+
+#Visualization
+pairLR.use.up = net.up[, "interaction_name", drop = F]
+gg7 <- netVisual_bubble(cellchat_merged, pairLR.use = pairLR.use.up, sources.use = "Mm-Beta 1", targets.use = c("Mm-M1 macrophages", "Mm-M2 macrophages"), comparison = c(1, 2),  angle.x = 90, remove.isolate = T,title.name = paste0("Up-regulated signaling in ", names(object.list)[2]))
+
+#> Comparing communications on a merged object
+pairLR.use.down = net.down[, "interaction_name", drop = F]
+gg8 <- netVisual_bubble(cellchat_merged, pairLR.use = pairLR.use.down, sources.use = "Mm-Beta 1", targets.use = c("Mm-M1 macrophages", "Mm-M2 macrophages"), comparison = c(1, 2),  angle.x = 90, remove.isolate = T,title.name = paste0("Down-regulated signaling in ", names(object.list)[2]))
+
+#> Comparing communications on a merged object
+gg_DE <- gg7 + gg8
+
+
+write.csv(net.up, "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\LR_pairs_upreg_DEA.csv")
+write.csv(net.down, "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\LR_pairs_downreg_DEA.csv")
+```
+
+
+```{r}
+gg9 <- netVisual_bubble(cellchat_merged, pairLR.use = pairLR.use.up, sources.use = "Mm-Beta 2", targets.use = c("Mm-M1 macrophages", "Mm-M2 macrophages"), comparison = c(1, 2),  angle.x = 90, remove.isolate = T,title.name = paste0("Up-regulated signaling in ", names(object.list)[2]))
+
+gg10 <- netVisual_bubble(cellchat_merged, pairLR.use = pairLR.use.down, sources.use = "Mm-Beta 2", targets.use = c("Mm-M1 macrophages", "Mm-M2 macrophages"), comparison = c(1, 2),  angle.x = 90, remove.isolate = T,title.name = paste0("Down-regulated signaling in ", names(object.list)[2]))
+
+gg_DE_beta2 <- gg9 + gg10
+```
+
+
+```{r}
+cellchat_combined <- readRDS("D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\combined_cellchat_merged.rds")
+
+combined_RC <- readRDS("D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\combined_cellchat_RC.rds")
+
+combined_HFD <- readRDS("D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\combined_cellchat_HFD.rds")
+
+
+object.list <- list(RC = combined_RC, HFD = combined_HFD)
+object.list_hfd <- list(RC = combined_HFD)
+weight.max <- getMaxWeight(object.list_hfd, slot.name = c("netP"), attribute = pathways.show) 
+netVisual_aggregate(object.list[[1]], signaling = pathways.show, layout = "circle", edge.weight.max = weight.max[1], edge.width.max = 10, signaling.name = paste(pathways.show, names(object.list)[i]))
+
+names(object.list)
+
+#Circle plots for signaling patterns
+
+object.list <- list( HFD = object.list)
+pathways.show <- c("CCL") 
+weight.max <- getMaxWeight(object.list, slot.name = c("netP"), attribute = pathways.show) 
+par(mfrow = c(1,2), xpd=TRUE)
+for (i in 1:length(object.list)) {
+  netVisual_aggregate(object.list[[i]], signaling = pathways.show, layout = "circle", edge.weight.max = weight.max[1], edge.width.max = 10, signaling.name = paste(pathways.show, names(object.list)[i]))
+}
+
+
+
+alpha1_RC <- netVisual_bubble(cellchat_combined, sources.use = "Mm-Alpha 1", targets.use = c(1:26),  comparison = 1, angle.x = 45)
+
+alpha1_HFD <- netVisual_bubble(cellchat_combined, sources.use = "Mm-Alpha 1", targets.use = c(1:26),  comparison = 2, angle.x = 45)
+
+alpha1_plot <- alpha1_RC + alpha1_HFD
+
+ggsave(plot = alpha1_plot, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\alpha1_RC_HFD.tiff", units = "in", dpi = 300, width = 20, height = 15)
+
+
+
+alpha2_RC <- netVisual_bubble(cellchat_combined, sources.use = "Mm-Alpha 2", targets.use = c(1:26),  comparison = 1, angle.x = 45)
+
+alpha2_HFD <- netVisual_bubble(cellchat_combined, sources.use = "Mm-Alpha 2", targets.use = c(1:26),  comparison = 2, angle.x = 45)
+
+alpha2_plot <- alpha2_RC + alpha2_HFD
+
+ggsave(plot = alpha2_plot, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\alpha2_RC_HFD.tiff", units = "in", dpi = 300, width = 20, height = 15)
+
+
+
+beta1_RC <- netVisual_bubble(cellchat_combined, sources.use = "Mm-Beta 1", targets.use = c(1:26),  comparison = 1, angle.x = 45)
+
+beta1_HFD <- netVisual_bubble(cellchat_combined, sources.use = "Mm-Beta 1", targets.use = c(1:26),  comparison = 2, angle.x = 45)
+
+beta1_plot <- beta1_RC + beta1_HFD
+
+ggsave(plot = beta1_plot, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\beta1_RC_HFD.tiff", units = "in", dpi = 300, width = 20, height = 18)
+
+
+
+
+beta2_RC <- netVisual_bubble(cellchat_combined, sources.use = "Mm-Beta 2", targets.use = c(1:26),  comparison = 1, angle.x = 45)
+
+beta2_HFD <- netVisual_bubble(cellchat_combined, sources.use = "Mm-Beta 2", targets.use = c(1:26),  comparison = 2, angle.x = 45)
+
+beta2_plot <- beta2_RC + beta2_HFD
+
+ggsave(plot = beta2_plot, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\beta2_RC_HFD.tiff", units = "in", dpi = 300, width = 20, height = 15)
+
+
+
+beta3_RC <- netVisual_bubble(cellchat_combined, sources.use = "Mm-Beta 3", targets.use = c(1:26),  comparison = 1, angle.x = 45)
+
+beta3_HFD <- netVisual_bubble(cellchat_combined, sources.use = "Mm-Beta 3", targets.use = c(1:26),  comparison = 2, angle.x = 45)
+
+beta3_plot <- beta3_RC + beta3_HFD
+
+ggsave(plot = beta3_plot, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\beta3_RC_HFD.tiff", units = "in", dpi = 300, width = 20, height = 15)
+
+
+
+delta1_RC <- netVisual_bubble(cellchat_combined, sources.use = "Mm-Delta 1", targets.use = c(1:26),  comparison = 1, angle.x = 45)
+
+delta1_HFD <- netVisual_bubble(cellchat_combined, sources.use = "Mm-Delta 1", targets.use = c(1:26),  comparison = 2, angle.x = 45)
+
+delta1_plot <- delta1_RC + delta1_HFD
+
+ggsave(plot = delta1_plot, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\delta1_RC_HFD.tiff", units = "in", dpi = 300, width = 17, height = 15)
+
+
+
+delta2_RC <- netVisual_bubble(cellchat_combined, sources.use = "Mm-Delta 2", targets.use = c(1:26),  comparison = 1, angle.x = 45)
+
+delta2_HFD <- netVisual_bubble(cellchat_combined, sources.use = "Mm-Delta 2", targets.use = c(1:26),  comparison = 2, angle.x = 45)
+
+delta2_plot <- delta2_RC + delta2_HFD
+
+ggsave(plot = delta2_plot, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\delta2_RC_HFD.tiff", units = "in", dpi = 300, width = 22, height = 21)
+
+
+
+
+delta3_RC <- netVisual_bubble(cellchat_combined, sources.use = "Mm-Delta 3", targets.use = c(1:26),  comparison = 1, angle.x = 45)
+
+delta3_HFD <- netVisual_bubble(cellchat_combined, sources.use = "Mm-Delta 3", targets.use = c(1:26),  comparison = 2, angle.x = 45)
+
+delta3_plot <- delta3_RC + delta3_HFD
+
+ggsave(plot = delta3_plot, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\delta3_RC_HFD.tiff", units = "in", dpi = 300, width = 17, height = 15)
+```
+
+
+```{r}
+object.list <- list(RC = combined_RC, HFD = combined_HFD)
+
+names(object.list)
+
+#Circle plots for signaling patterns
+
+pathways.show <- c("INSULIN") 
+weight.max <- getMaxWeight(object.list, slot.name = c("netP"), attribute = pathways.show) 
+par(mfrow = c(1,2), xpd=TRUE)
+for (i in 1:length(object.list)) {
+  netVisual_aggregate(object.list[[i]], signaling = pathways.show, layout = "circle", edge.weight.max = weight.max[1], edge.width.max = 10, signaling.name = paste(pathways.show, names(object.list)[i]))
+}
+
+
+
+pathways.show <- c("NPY") 
+vertex.receiver = seq(1,4) 
+netVisual_aggregate(combined_RC, signaling = pathways.show,  vertex.receiver = vertex.receiver)
+par(mfrow=c(1,1))
+netVisual_aggregate(combined_RC, signaling = pathways.show, layout = "circle")
+
+
+
+
+pathways.show <- c("PERIOSTIN") 
+vertex.receiver = seq(1,4) 
+netVisual_aggregate(combined_HFD, signaling = pathways.show,  vertex.receiver = vertex.receiver)
+par(mfrow=c(1,1))
+netVisual_aggregate(combined_HFD, signaling = pathways.show, layout = "circle")
+```
+```{r}
+pathways.show <- c("CXCL") 
+par(mfrow = c(1,2), xpd=TRUE)
+ht <- list()
+for (i in 1:length(object.list)) {
+  ht[[i]] <- netVisual_heatmap(object.list[[i]], signaling = pathways.show, color.heatmap = "Reds",title.name = paste(pathways.show, "signaling ",names(object.list)[i]))
+}
+#> Do heatmap based on a single object 
+#> 
+#> Do heatmap based on a single object
+cxcl_heatmap <- ComplexHeatmap::draw(ht[[1]] + ht[[2]], ht_gap = unit(0.5, "cm"))
+
+ggsave(plot = cxcl_heatmap, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\cxcl_heatmap.tiff", units = "in", dpi = 300, width = 10, height = 15)
+
+
+
+
+pathways.show <- c("CCL") 
+par(mfrow = c(1,2), xpd=TRUE)
+ht <- list()
+for (i in 1:length(object.list)) {
+  ht[[i]] <- netVisual_heatmap(object.list[[i]], signaling = pathways.show, color.heatmap = "Reds",title.name = paste(pathways.show, "signaling ",names(object.list)[i]))
+}
+
+ccl_heatmap <- ComplexHeatmap::draw(ht[[1]] + ht[[2]], ht_gap = unit(0.5, "cm"))
+
+ggsave(plot = cxcl_heatmap, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\cxcl_heatmap.tiff", units = "in", dpi = 300, width = 10, height = 15)
+
+```
+```{r}
+object.list <- list(RC = combined_RC, HFD = combined_HFD)
+object.list_hfd <- list(HFD = combined_HFD)
+object.list_rc <- list(HFD = combined_RC)
+
+weight.max <- getMaxWeight(object.list_hfd, slot.name = c("netP"), attribute = pathways.show) 
+netVisual_aggregate(object.list_hfd[[1]], signaling = pathways.show, layout = "circle", vertex.label.cex = 0.8, edge.weight.max = weight.max[1], edge.width.max = 10, point.size = 1.0, signaling.name = paste(pathways.show, names(object.list_hfd)[i]))
+
+names(object.list)
+
+#Circle plots for signaling patterns
+
+object.list <- list(HFD = object.list)
+pathways.show <- c("CCL") 
+weight.max <- getMaxWeight(object.list, slot.name = c("netP"), attribute = pathways.show) 
+par(mfrow = c(1,2), xpd=TRUE)
+for (i in 1:length(object.list)) {
+  netVisual_aggregate(object.list[[i]], signaling = pathways.show, layout = "circle", edge.weight.max = weight.max[1], edge.width.max = 10, signaling.name = paste(pathways.show, names(object.list)[i]))
+}
+
+netVisual_aggregate(object.list_hfd[[i]], signaling = pathways.show, layout = "circle", edge.weight.max = weight.max[1], edge.width.max = 10, signaling.name = paste(pathways.show, names(object.list)[i]))
+
+
+```
+
+
+```{r}
+head(combined_RC@net$count)
+```
+
+```{r}
+head(combined_RC@net$weight)
+```
+
+```{r}
+combined_RC@netP$pathways
+combined_RC@netP[["centr"]][["CCL"]][["outdeg"]]
+combined_RC@netP[["centr"]][["CCL"]][["indeg"]]
+```
+```{r}
+# Extract pathways for RC and HFD
+pathways_RC <- object.list$RC@netP$pathways
+pathways_HFD <- object.list$HFD@netP$pathways
+
+# Find common pathways
+common_pathways <- intersect(pathways_RC, pathways_HFD)
+
+# Find pathways specific to RC
+specific_RC <- setdiff(pathways_RC, pathways_HFD)
+
+# Find pathways specific to HFD
+specific_HFD <- setdiff(pathways_HFD, pathways_RC)
+
+# Print results
+cat("Common pathways:", length(common_pathways), "\n")
+print(common_pathways)
+
+cat("Pathways specific to RC:", length(specific_RC), "\n")
+print(specific_RC)
+
+cat("Pathways specific to HFD:", length(specific_HFD), "\n")
+print(specific_HFD)
+
+```
+

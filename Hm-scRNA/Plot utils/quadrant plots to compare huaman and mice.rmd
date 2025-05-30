@@ -1,0 +1,54 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+library(Seurat)
+library(ggplot2)
+
+
+```
+
+#Quadrant plot to compare human and mice clusters across conditions
+
+```{r}
+Mm.Seurat <- readRDS("E:/Islet Project/RDS File/After removal/ENDOCRINE/beta/RC_HFD_MERGED_BETA.Rds")
+Hs.Seurat <- readRDS("D:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN Beta 0.05 resJT.rds")
+Mm.Seurat$cluster_name_diet <- paste0(Mm.Seurat$cluster_name,"_", Mm.Seurat$Diet)  
+Mm.Seurat <- SetIdent(Mm.Seurat, value = Mm.Seurat$cluster_name_diet)  
+Hs.Seurat <- SetIdent(Hs.Seurat, value = Hs.Seurat$subtype2_condition)
+
+unique(Mm.Seurat$cluster_name_diet)
+unique(Hs.Seurat$subtype2_condition)
+
+Mm_to_Hs_orthologs <- read.csv("D:\\LAB 20 IIT K\\HIRN-PANC DB\\Multimodal reference mapping and integration files\\geneV2 Mouse to Human orthologs converted.csv")
+Mm_to_Hs_orthologs
+```
+
+```{r}
+Mm.Seurat <- SetIdent(Mm.Seurat, value = Mm.Seurat$cell_diet_week)  
+table(Mm.Seurat$cell_diet_week)
+```
+
+
+
+```{r}
+DEGs_mice_HFDvsRC <- FindMarkers(Mm.Seurat, ident.1 = "Mm-Beta 1_HFD", ident.2 = "Mm-Beta 1_RC", logfc.threshold = 0.25)
+DEGs_mice_HFDvsRC$gene <- rownames(DEGs_mice_HFDvsRC)
+DEGs_mice_HFDvsRC$HGNC_gene <- toupper(DEGs_mice_HFDvsRC$gene)
+  
+DEGs_human_obesevsControl <- FindMarkers(Hs.Seurat, ident.1 = "Hs-Beta 1_Obese", ident.2 = "Hs-Beta 1_Control", logfc.threshold = 0.25)
+DEGs_human_obesevsControl$gene <- rownames(DEGs_human_obesevsControl)
+
+```
+```{r}
+Mm_to_Hs_orthologs <- Mm_to_Hs_orthologs[Mm_to_Hs_orthologs$MGI.symbol %in% DEGs_mice_HFDvsRC$gene, ]
+
+intersect(DEGs_mice_HFDvsRC$HGNC_gene, DEGs_human_obesevsControl$gene)
+```
+
+```{r}
+
+
+```
+

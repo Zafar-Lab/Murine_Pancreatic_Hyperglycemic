@@ -1,0 +1,720 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+levels(Mm.scRNA)
+unique(Mm.scRNA$cellstates.updated)
+unique(Mm.scRNA$Diet_Week)
+
+Mm.scRNA$cellstates.diet.week.updated <- paste0(Mm.scRNA$cellstates.updated," ", Mm.scRNA$Diet_Week)
+changing.levels <- Mm.scRNA$cellstates.diet.week.updated %>% str_replace_all("RC8W" = "RC_8W", "RC14W" = "RC_14W", "RC22W" = "RC_22W", "")
+```
+
+
+```{r}
+
+Mm.ATAC <- readRDS("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC data Jayesh/Mm-ATAC seurat 121222.rds")
+DefaultAssay(Mm.ATAC) <- "ATAC"
+
+#Inputting cluster name from predicted.id.cellstates.detailed
+cluster.name <- "Mm-Alpha 1"
+
+#From predicted.cellstates.detailed.diet.week column
+identity.1 <- "Mm-Alpha 1 HFD_8W"
+identity.2 <- "Mm-Alpha 1 RC_8W"
+
+identity.3 <- "Mm-Alpha 1 HFD_8W"
+identity.4 <- "Mm-Alpha 1 RC_14W"
+
+identity.5 <- "Mm-Alpha 1 HFD_24W"
+identity.6 <- "Mm-Alpha 1 RC_30W"
+
+#From detailed.cellstates.diet column
+identity.7 <- "Mm-Alpha 1_HFD"
+identity.8 <- "Mm-Alpha 1_RC"
+
+#####################################################################################################################
+Mm.ATAC <- SetIdent(Mm.ATAC, value = Mm.ATAC$predicted.cellstates.detailed.diet.week)
+Da_peaks1 <- FindMarkers(Mm.ATAC, ident.1 = identity.1, ident.2 = identity.2, logfc.threshold = 0.25, only.pos = F)
+Da_peaks2 <- FindMarkers(Mm.ATAC, ident.1 = identity.3, ident.2 = identity.4, logfc.threshold = 0.25, only.pos = F)
+Da_peaks3 <- FindMarkers(Mm.ATAC, ident.1 = identity.5, ident.2 = identity.6, logfc.threshold = 0.25, only.pos = F)
+
+
+Mm.ATAC <- SetIdent(Mm.ATAC, value = Mm.ATAC$detailed.cellstates.diet)
+Da_peaks4 <- FindMarkers(Mm.ATAC, ident.1 = identity.7, ident.2 = identity.8, logfc.threshold = 0.25, only.pos = F)
+
+Da_peaks1$cluster <- identity.1
+Da_peaks2$cluster <- identity.3
+Da_peaks3$cluster <- identity.5
+Da_peaks4$cluster <- identity.7
+
+Da_peaks1$test <- paste0("FindMarkers: ",identity.1," vs ", identity.2)
+Da_peaks2$test <- paste0("FindMarkers: ",identity.3," vs ", identity.4)
+Da_peaks3$test <- paste0("FindMarkers: ",identity.5," vs ", identity.6)
+Da_peaks4$test <- paste0("FindMarkers: ",identity.7," vs ", identity.8)
+
+
+
+
+Da_peaks_sf <- rbind(Da_peaks1, Da_peaks2, Da_peaks3, Da_peaks4)
+Da_peaks_sf <- Da_peaks_sf[Da_peaks_sf$p_val < 0.05,]
+Da_peaks_sf$query_region <- rownames(Da_peaks_sf)
+
+##########################################################################################################
+
+
+Mm.ATAC.subset <- subset(Mm.ATAC, predicted.id.cellstates.detailed== cluster.name)
+Mm.ATAC.subset <- RunTFIDF(Mm.ATAC.subset)
+Mm.ATAC.subset <- FindTopFeatures(Mm.ATAC.subset, min.cutoff = 'q0')
+Mm.ATAC.subset <- RunSVD(Mm.ATAC.subset)
+
+Mm.ATAC.subset <- SetIdent(Mm.ATAC.subset, value = Mm.ATAC.subset$predicted.cellstates.detailed.diet.week)
+DefaultAssay(Mm.ATAC.subset) <- "ATAC"
+
+###########################################################################################################
+
+Da_peaks5 <- FindAllMarkers(Mm.ATAC.subset, only.pos = F, logfc.threshold = 0.25)
+colnames(Da_peaks5)[7] <- "query_region"
+Da_peaks5$test <- paste0("FindAllMarkers: ",cluster.name, "from predicted.cellstates.detailed.diet.week")
+Da_peaks5 <- Da_peaks5[Da_peaks5$cluster == identity.1|Da_peaks5$cluster == identity.3|Da_peaks5$cluster == identity.5,]
+Da_peaks5 <- Da_peaks5[Da_peaks5$avg_log2FC > 0,]
+
+
+
+
+Da_peaks_f <- rbind(Da_peaks5, Da_peaks_sf)
+Da_peaks_f <- Da_peaks_f[Da_peaks_f$p_val < 0.05,]
+Da_peaks_f$query_region <- rownames(Da_peaks_f)
+
+
+
+
+closest_genes_all <- ClosestFeature(Mm.ATAC, regions = Da_peaks_f$query_region)
+Da_peaks_f <- merge(Da_peaks_f, closest_genes_all, by = "query_region", all = T)
+Da_peaks_f <- Da_peaks_f[Da_peaks_f$type != "gap", ]
+Da_peaks_f <- Da_peaks_f[Da_peaks_f$distance == 0, ]
+
+
+writexl::write_xlsx(Da_peaks_f, path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Mm.ATAC Alpha analysis/DARs across dietweek.xlsx")
+
+
+
+
+```
+
+
+```{r}
+Da_peaks_f_neg <- na.omit(Da_peaks_f[Da_peaks_f$avg_log2FC < 0, ])
+nrow(Da_peaks_f_neg)
+
+Da_peaks_f_pos <- na.omit(Da_peaks_f[Da_peaks_f$avg_log2FC > 0, ])
+nrow(Da_peaks_f_pos)
+```
+
+
+```{r}
+
+genelist.to.plot <-  readxl::read_excel("F:\\Mm.ATAC data Jayesh\\Sheets\\Mm.ATAC genes for peak plots for clusters.xlsx", sheet = "Mm-Alpha 1")
+genelist.to.plot <- na.omit(unlist(genelist.to.plot))
+
+sorted_genes <- intersect(genelist.to.plot, Da_peaks_f$gene_name)
+```
+
+
+```{r}
+Mm.Alpha1.Metascpe <-  readxl::read_excel("G:/Mm.ATAC 221222 Jayesh/Peak plots diet_week condition/Mm.Alpha 1/Metasacpe Mm.Alpha 1/metascape_result.xlsx", sheet = "Sorted")
+
+
+Mm.Alpha1.Metascpe_genes <- unlist(Mm.Alpha1.Metascpe$Symbols)
+Mm.Alpha1.Metascpe_genes <- unique(unlist(Mm.Alpha1.Metascpe_genes %>% strsplit(" ")))
+
+sorted.genes1<- c(sorted_genes, Mm.Alpha1.Metascpe_genes)
+sorted.genes1 <- intersect(sorted.genes1, rownames(Mm.ATAC@assays$RNA))
+sorted.genes1 <- intersect(sorted.genes1, rownames(Mm.scRNA@assays$RNA))
+
+sorted.genes1 <- c("Rdh10", "Vil1", "Hsp90b1", "Slc2a4", "Kcnh3", "Ppm1f", "Lst1", "H2-M3", "Sle35c1","Relb", "Nucb1", "Hcfc1", 
+                   "Rnf19b")
+
+Da_peaks_sorted <- Da_peaks_f[Da_peaks_f$gene_name  %in% sorted.genes1,]
+
+Da_peaks_sorted <- na.omit(Da_peaks_sorted)
+unique(Da_peaks_sorted$gene_name)
+
+Da_peaks_sorted <- Da_peaks_sorted[Da_peaks_sorted$type != "gap",]
+
+da_peaks_metascape_alpha1_upregulated_HFD <- Da_peaks_sorted
+```
+
+```{r}
+Da_peaks_sorted <- readxl::read_excel("G:/Mm.ATAC 221222 Jayesh/Peak plots diet_week condition/Mm.Alpha 1/Metasacpe Mm.Alpha 1/Sorted_genelist_amritansh.xlsx")
+
+Da_peaks_sorted <- Da_peaks_sorted[Da_peaks_sorted$gene_name  %in% sorted.genes1,]
+
+```
+
+
+
+```{r}
+idents.to.use <- c("Mm-Alpha 1 RC_8W","Mm-Alpha 1 RC_14W","Mm-Alpha 1 RC_30W", "Mm-Alpha 1 HFD_8W", "Mm-Alpha 1 HFD_24W")
+
+Mm.scRNA.idents.to.use <- c("Mm-Alpha 1 RC_8W", "Mm-Alpha 1 RC_14W", "Mm-Alpha 1 RC_22W", "Mm-Alpha 1 HFD_8W", 
+                            "Mm-Alpha 1 HFD_16W")
+
+pdf(file = paste0("G:/Mm.ATAC 221222 Jayesh/Peak plots diet_week condition/Mm.Alpha 1/Mm.Alpha1_test10_genes_from_metascape.pdf"), width = 17, height = 6.5)
+
+################################################################################################################################
+Mm.ATAC<- SetIdent(Mm.ATAC, value = Mm.ATAC$predicted.cellstates.detailed.diet.week)
+
+Mm.scRNA <- SetIdent(Mm.scRNA, value = Mm.scRNA$cellstates.diet.week.updated)
+levels(Mm.scRNA) <- rev(Mm.ScRNA.levels$X.1)
+
+DefaultAssay(Mm.ATAC) <- "ATAC"
+DefaultAssay(Mm.scRNA) <- "RNA"
+
+for (i in 1:length(Da_peaks_sorted$gene_name)) {#i in 1:length(Da_peaks_sorted$gene_name
+
+levels(Mm.ATAC) <- rev(levels(Mm.ATAC))
+Plot <- CoveragePlot(object = Mm.ATAC,
+  region = Da_peaks_sorted$gene_name[i],
+  extend.upstream = 1000,
+  extend.downstream = 1000,
+  #features = Da_peaks_sorted$gene_name[i], 
+  links = F, idents = idents.to.use, 
+  region.highlight = StringToGRanges(Da_peaks_sorted$query_region[i]
+                                     )
+  )+patchwork::plot_annotation(title = paste0(Da_peaks_sorted$gene_name[i]," ",Da_peaks_sorted$type[i]," ",Da_peaks_sorted$query_region[i]," ", Da_peaks_sorted$gene_biotype[i]))
+  
+levels(Mm.ATAC) <- rev(levels(Mm.ATAC))
+
+Dot.Plot <- DotPlot(Mm.ATAC, assay = "RNA", features = Da_peaks_sorted$gene_name[i],idents = idents.to.use, scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red")) +theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=8, color="black"),
+        axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6))+ ggtitle("Mm-scATAC seq RNA assay") 
+
+
+Dot.Plot1 <- DotPlot(Mm.scRNA, assay = "RNA", features = Da_peaks_sorted$gene_name[i],idents = Mm.scRNA.idents.to.use, scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red")) +theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=8, color="black"),
+        axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6))+ ggtitle( "Mm-scRNA seq RNA assay") 
+
+print(Plot+Dot.Plot + Dot.Plot1)
+
+  }
+
+  dev.off()
+  
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+####################################################
+
+
+```{r}
+
+Mm.ATAC <- readRDS("F:/Mm.ATAC data Jayesh/Mm-ATAC seurat 121222.rds")
+DefaultAssay(Mm.ATAC) <- "ATAC"
+
+#Inputting cluster name from predicted.id.cellstates.detailed
+cluster.name <- "Mm-Alpha 1"
+
+#From predicted.cellstates.detailed.diet.week column
+identity.1 <- "Mm-Alpha 1 HFD_8W"
+identity.2 <- "Mm-Alpha 1 RC_8W"
+
+identity.3 <- "Mm-Alpha 1 HFD_8W"
+identity.4 <- "Mm-Alpha 1 RC_14W"
+
+identity.5 <- "Mm-Alpha 1 HFD_24W"
+identity.6 <- "Mm-Alpha 1 RC_30W"
+
+#From detailed.cellstates.diet column
+identity.7 <- "Mm-Alpha 1_HFD"
+identity.8 <- "Mm-Alpha 1_RC"
+
+#####################################################################################################################
+Mm.ATAC <- SetIdent(Mm.ATAC, value = Mm.ATAC$predicted.cellstates.detailed.diet.week)
+Da_peaks1 <- FindMarkers(Mm.ATAC, ident.1 = identity.1, ident.2 = identity.2, logfc.threshold = 0.25, only.pos = F)
+Da_peaks2 <- FindMarkers(Mm.ATAC, ident.1 = identity.3, ident.2 = identity.4, logfc.threshold = 0.25, only.pos = F)
+Da_peaks3 <- FindMarkers(Mm.ATAC, ident.1 = identity.5, ident.2 = identity.6, logfc.threshold = 0.25, only.pos = F)
+
+
+Mm.ATAC <- SetIdent(Mm.ATAC, value = Mm.ATAC$detailed.cellstates.diet)
+Da_peaks4 <- FindMarkers(Mm.ATAC, ident.1 = identity.7, ident.2 = identity.8, logfc.threshold = 0.25, only.pos = F)
+
+Da_peaks1$cluster <- identity.1
+Da_peaks2$cluster <- identity.3
+Da_peaks3$cluster <- identity.5
+Da_peaks4$cluster <- identity.7
+
+Da_peaks1$test <- paste0("FindMarkers: ",identity.1," vs ", identity.2)
+Da_peaks2$test <- paste0("FindMarkers: ",identity.3," vs ", identity.4)
+Da_peaks3$test <- paste0("FindMarkers: ",identity.5," vs ", identity.6)
+Da_peaks4$test <- paste0("FindMarkers: ",identity.7," vs ", identity.8)
+
+
+
+
+Da_peaks_sf <- rbind(Da_peaks1, Da_peaks2, Da_peaks3, Da_peaks4)
+Da_peaks_sf <- Da_peaks_sf[Da_peaks_sf$p_val < 0.05,]
+Da_peaks_sf$query_region <- rownames(Da_peaks_sf)
+
+##########################################################################################################
+
+
+Mm.ATAC.subset <- subset(Mm.ATAC, predicted.id.cellstates.detailed== cluster.name)
+Mm.ATAC.subset <- RunTFIDF(Mm.ATAC.subset)
+Mm.ATAC.subset <- FindTopFeatures(Mm.ATAC.subset, min.cutoff = 'q0')
+Mm.ATAC.subset <- RunSVD(Mm.ATAC.subset)
+
+Mm.ATAC.subset <- SetIdent(Mm.ATAC.subset, value = Mm.ATAC.subset$predicted.cellstates.detailed.diet.week)
+DefaultAssay(Mm.ATAC.subset) <- "ATAC"
+
+###########################################################################################################
+
+Da_peaks5 <- FindAllMarkers(Mm.ATAC.subset, only.pos = F, logfc.threshold = 0.25)
+colnames(Da_peaks5)[7] <- "query_region"
+Da_peaks5$test <- paste0("FindAllMarkers: ",cluster.name, "from predicted.cellstates.detailed.diet.week")
+#Da_peaks5 <- Da_peaks5[Da_peaks5$cluster == identity.1|Da_peaks5$cluster == identity.3|Da_peaks5$cluster == identity.5,]
+#Da_peaks5 <- Da_peaks5[Da_peaks5$avg_log2FC > 0,]
+
+
+
+
+Da_peaks_f <- rbind(Da_peaks5, Da_peaks_sf)
+Da_peaks_f <- Da_peaks_f[Da_peaks_f$p_val < 0.05,]
+Da_peaks_f$query_region <- rownames(Da_peaks_f)
+
+
+
+
+closest_genes_all <- ClosestFeature(Mm.ATAC, regions = Da_peaks_f$query_region)
+Da_peaks_f <- merge(Da_peaks_f, closest_genes_all, by = "query_region", all = T)
+
+
+
+
+genelist.to.plot <-  readxl::read_excel("F:\\Mm.ATAC data Jayesh\\Sheets\\Mm.ATAC genes for peak plots for clusters.xlsx", sheet = "Mm-Alpha 1")
+genelist.to.plot <- na.omit(unlist(genelist.to.plot))
+
+sorted_genes <- intersect(genelist.to.plot, Da_peaks_f$gene_name)
+
+
+```
+
+
+
+```{r}
+# Mm.Alpha1.Metascpe <-  readxl::read_excel("G:/Mm.ATAC 221222 Jayesh/Peak plots diet_week condition/Mm.Alpha 1/Metasacpe Mm.Alpha 1/metascape_result.xlsx", sheet = "Sorted")
+# 
+# 
+# Mm.Alpha1.Metascpe_genes <- unlist(Mm.Alpha1.Metascpe$Symbols)
+# Mm.Alpha1.Metascpe_genes <- unique(unlist(Mm.Alpha1.Metascpe_genes %>% strsplit(" ")))
+# 
+# sorted.genes1<- c(sorted_genes, Mm.Alpha1.Metascpe_genes)
+# sorted.genes1 <- intersect(sorted.genes1, rownames(Mm.ATAC@assays$RNA))
+# sorted.genes1 <- intersect(sorted.genes1, rownames(Mm.scRNA@assays$RNA))
+
+sorted_genes1 <- c("Uqcr11", "Gpx3", "Xbp1", "Vamp2", "Temed10", "Fos", "Kctd12", "Atf4", "Ndufa6", "Sod1", "Pgam1", "Cox8a", "Temed10", "Snap25", "Foxa2", "Mafb", "Jun", "Gnas", "Atp5e", "Sesn3", "Arx")
+
+Da_peaks_sorted <- Da_peaks_f[Da_peaks_f$gene_name  %in% sorted_genes1,]
+
+Da_peaks_sorted <- unique(Da_peaks_sorted)
+unique(Da_peaks_sorted$gene_name)
+
+sorted_genes1 <- c("Uqcr11", "Gpx3", "Xbp1", "Vamp2", "Temed10", "Fos", "Kctd12", "Atf4", "Ndufa6", "Sod1", "Pgam1", "Cox8a", "Temed10", "Snap25", "Foxa2", "Mafb", "Jun", "Gnas", "Atp5e", "Sesn3", "Arx")
+```
+
+
+
+```{r}
+idents.to.use <- c("Mm-Alpha 1 RC_8W","Mm-Alpha 1 RC_14W","Mm-Alpha 1 RC_30W", "Mm-Alpha 1 HFD_8W", "Mm-Alpha 1 HFD_24W")
+Mm.scRNA.idents.to.use <- c("Mm-Alpha 1 RC8W", "Mm-Alpha 1 RC14W", "Mm-Alpha 1 RC22W", "Mm-Alpha 1 RC30W", "Mm-Alpha 1 HFD8W", 
+                            "Mm-Alpha 1 HFD16W", "Mm-Alpha 1 HFD24W")
+
+pdf(file = paste0("G:/Mm.ATAC 221222 Jayesh/Peak plots diet_week condition/Mm.Alpha 1/Mm.Alpha1_test1.pdf"), width = 16, height = 6)
+
+################################################################################################################################
+Mm.ATAC<- SetIdent(Mm.ATAC, value = Mm.ATAC$predicted.cellstates.detailed.diet.week)
+Mm.scRNA <- SetIdent(Mm.scRNA, value = Mm.scRNA$cellstates.diet.week.updated)
+levels(Mm.scRNA) <- rev(levels(Mm.scRNA))
+
+DefaultAssay(Mm.ATAC) <- "ATAC"
+DefaultAssay(Mm.scRNA) <- "RNA"
+ 
+for (i in 1:length(Da_peaks_sorted$gene_name)) {
+
+levels(Mm.ATAC) <- rev(levels(Mm.ATAC))
+Plot <- CoveragePlot(object = Mm.ATAC,
+  region = Da_peaks_sorted$gene_name[i],
+  extend.upstream = 1000,
+  extend.downstream = 1000,
+  #features = Da_peaks_sorted$gene_name[i], 
+  links = F, idents = idents.to.use, 
+  region.highlight = StringToGRanges(Da_peaks_sorted$query_region[i])
+  )+patchwork::plot_annotation(title = paste0(Da_peaks_sorted$gene_name[i]," ",Da_peaks_sorted$type[i]," ",Da_peaks_sorted$query_region[i]," ", Da_peaks_sorted$gene_biotype[i]))
+  
+levels(Mm.ATAC) <- rev(levels(Mm.ATAC))
+
+Dot.Plot <- DotPlot(Mm.ATAC, assay = "RNA", features = Da_peaks_sorted$gene_name[i],idents = idents.to.use, scale.min = 0, scale.max = 100, dot.scale = 15) +theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=8, color="black"),
+        axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6))+ ggtitle("Mm-scATAC seq RNA assay") 
+
+
+Dot.Plot1 <- DotPlot(Mm.scRNA, assay = "RNA", features = Da_peaks_sorted$gene_name[i],idents = Mm.scRNA.idents.to.use, scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("white", "red")) +theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=8, color="black"),
+        axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6))+ ggtitle("Mm-scRNA seq RNA assay") 
+
+print(Plot+Dot.Plot + Dot.Plot1)
+
+  }
+
+  dev.off()
+  
+```
+
+
+
+```{r}
+Mm.RNA.alpha.un_normalized <- readRDS("E:/Islet Project/RDS File/After removal/ENDOCRINE/alpha/RC_HFD_Endocrine_Alpha_after_merging_reremoval.Rds")
+
+Mm.RNA.alpha.un_normalized <- SetIdent(Mm.RNA.alpha.un_normalized, value = Mm.RNA.alpha.un_normalized$cell_diet_week)
+
+
+Mm.RNA.alpha.normalized  <- NormalizeData(Mm.RNA.alpha.un_normalized)
+
+Mm.RNA.alpha.normalized <- SetIdent(Mm.RNA.alpha.normalized, value = Mm.RNA.alpha.normalized$cell_diet_week)
+
+
+Mm.RNA.alpha.normalized2 <- NormalizeData(Mm.RNA.alpha.normalized)
+Mm.RNA.alpha.normalized2 <- SetIdent(Mm.RNA.alpha.normalized2, value = Mm.RNA.alpha.normalized2$cell_diet_week)
+
+Mm.scRNA.idents.to.use <- c("Mm-Alpha 1_RC_8W", "Mm-Alpha 1_RC_14W", "Mm-Alpha 1_RC_22W", "Mm-Alpha 1_RC_30W", "Mm-Alpha 1_HFD_8W", 
+                            "Mm-Alpha 1_HFD_16W", "Mm-Alpha 1_HFD_24W")
+
+unnormalized <- DotPlot(Mm.RNA.alpha.un_normalized, features = c("Acly", "Gpx3", "G6pc2", "Kctd12", "Kcnk16", "Kcnj6", "Abcc8"),  scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"), idents = Mm.scRNA.idents.to.use)+ ggtitle("Un-normalized")
+
+normalized <- DotPlot(Mm.RNA.alpha.normalized, features = c("Acly", "Gpx3", "G6pc2", "Kctd12", "Kcnk16", "Kcnj6", "Abcc8"), scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"), idents = Mm.scRNA.idents.to.use)+ ggtitle("Normalized")
+
+normalized2 <- DotPlot(Mm.RNA.alpha.normalized2, features = c("Acly", "Gpx3", "G6pc2", "Kctd12", "Kcnk16", "Kcnj6", "Abcc8"), scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"), idents = Mm.scRNA.idents.to.use)+ ggtitle("Normalized2")
+
+
+unnormalized|normalized|normalized2
+```
+
+```{r}
+p1 <- DotPlot(Mm.RNA.alpha.un_normalized, features = "Arx", idents = Mm.scRNA.idents.to.use, scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"))
+
+p2 <- DotPlot(Mm.RNA.alpha.normalized, features = "Arx", idents = Mm.scRNA.idents.to.use, scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"))
+
+p1|p2
+```
+
+
+
+```{r}
+ATAC.cells <- rownames(Mm.scRNA@meta.data)[which(Mm.scRNA$cellstates.updated == "Mm-Alpha 1")]
+
+
+intersect(ATAC.cells, colnames(Mm.RNA.alpha))
+```
+
+
+
+```{r}
+Mm.scRNA.idents.to.use <- c("Mm-Alpha 1_RC_8W", "Mm-Alpha 1_RC_14W", "Mm-Alpha 1_RC_22W", "Mm-Alpha 1_HFD_8W", 
+                            "Mm-Alpha 1_HFD_16W")
+
+#Mm.scRNA.idents.to.use <- c("Mm-Delta 1_RC_8W", "Mm-Delta 1_RC_14W", "Mm-Delta 1_RC_22W", "Mm-Delta 1_HFD_8W", 
+                            #"Mm-Delta 1_HFD_16W")
+
+Mm.RNA.alpha.un_normalized <- readRDS("E:/Islet Project/RDS File/After removal/ENDOCRINE/alpha/RC_HFD_Endocrine_Alpha_after_merging_reremoval.Rds")
+Mm.RNA.alpha.un_normalized <- SetIdent(Mm.RNA.alpha.un_normalized, value = Mm.RNA.alpha.un_normalized$cell_diet_week)
+
+
+Mm.RNA.alpha.normalized  <- NormalizeData(Mm.RNA.alpha.un_normalized)
+Mm.RNA.alpha.normalized  <- FindVariableFeatures(Mm.RNA.alpha.normalized)
+Mm.RNA.alpha.normalized  <- ScaleData(Mm.RNA.alpha.normalized)
+Mm.RNA.alpha.normalized <- SetIdent(Mm.RNA.alpha.normalized, value = Mm.RNA.alpha.normalized$cell_diet_week)
+
+
+
+
+levels(Mm.RNA.alpha.un_normalized) <- c("Mm-Alpha 1_RC_8W","Mm-Alpha 1_RC_14W","Mm-Alpha 1_RC_22W","Mm-Alpha 1_HFD_8W", "Mm-Alpha 1_HFD_16W", "Mm-Alpha 1_HFD_24W", 
+"Mm-Alpha 2_RC_8W","Mm-Alpha 2_RC_14W","Mm-Alpha 2_RC_22W","Mm-Alpha 2_RC_30W","Mm-Alpha 2_HFD_8W", "Mm-Alpha 2_HFD_16W", "Mm-Alpha 2_HFD_24W")
+
+
+levels(Mm.RNA.alpha.normalized) <- c("Mm-Alpha 1_RC_8W","Mm-Alpha 1_RC_14W","Mm-Alpha 1_RC_22W","Mm-Alpha 1_HFD_8W", "Mm-Alpha 1_HFD_16W", "Mm-Alpha 1_HFD_24W", 
+"Mm-Alpha 2_RC_8W","Mm-Alpha 2_RC_14W","Mm-Alpha 2_RC_22W","Mm-Alpha 2_RC_30W","Mm-Alpha 2_HFD_8W", "Mm-Alpha 2_HFD_16W", "Mm-Alpha 2_HFD_24W")
+
+
+Mm.RNA.alpha.counts <- Mm.RNA.alpha.normalized
+Mm.RNA.alpha.counts@assays$RNA@data <- Mm.RNA.alpha.counts@assays$RNA@counts
+
+
+gene_to_plot <- c("Mafb","Arx", "Foxa2", "Pgam1","Acly", "Gpx3", "G6pc2", "Kctd12", "Kcnk16", "Kcnj6", "Abcc8")
+
+
+unnormalized <- DotPlot(Mm.RNA.alpha.un_normalized, features = gene_to_plot,  scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"), idents = Mm.scRNA.idents.to.use)+ ggtitle("scRNA seq scran Normalization")+theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=8, color="black"),
+        axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6))
+
+normalized <- DotPlot(Mm.RNA.alpha.normalized, features = gene_to_plot, scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"), idents = Mm.scRNA.idents.to.use)+ ggtitle("scRNA seq Seurat Normalized")+theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=8, color="black"),
+        axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6))
+
+plot.counts <- DotPlot(Mm.RNA.alpha.counts, features = gene_to_plot, scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"), idents = Mm.scRNA.idents.to.use)+ ggtitle("scRNA seq Counts Raw data")+theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=8, color="black"),
+        axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6))
+
+
+#Mm.ATAC <- readRDS("F:/Mm.ATAC data Jayesh/Mm-ATAC seurat 121222.rds")
+idents.to.use <- c("Mm-Alpha 1 RC_8W","Mm-Alpha 1 RC_14W","Mm-Alpha 1 RC_30W", "Mm-Alpha 1 HFD_8W", "Mm-Alpha 1 HFD_24W")
+plot.ATAC <- DotPlot(Mm.ATAC, features = gene_to_plot, assay = "RNA", scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"), idents = idents.to.use)+ ggtitle("scATAC RNA assay TF-IDF")+theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=8, color="black"),
+        axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6))
+
+# Mm.ATAC.counts <- Mm.ATAC
+# Mm.ATAC.counts@assays$RNA@data <- Mm.ATAC.counts@assays$RNA@counts
+
+plot.ATAC.counts <- DotPlot(Mm.ATAC.counts, features = gene_to_plot, assay = "RNA", scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"), idents = idents.to.use)+ ggtitle("scATAC RNA assay Raw data")+theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=8, color="black"),
+        axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6))
+#levels(Mm.RNA.alpha.normalized)
+
+plot.counts|normalized|unnormalized
+plot.ATAC.counts|plot.ATAC
+```
+
+
+
+```{r}
+unnormalized <- DotPlot(Mm.RNA.alpha.un_normalized, features = c("Mafb","Arx", "Foxa2", "Pgam1"),  scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"),idents = c("Mm-Alpha 1_RC_8W", "Mm-Alpha 1_RC_14W", "Mm-Alpha 1_RC_22W", "Mm-Alpha 1_HFD_8W", 
+                            "Mm-Alpha 1_HFD_16W"))+ ggtitle("Normalized using scran")
+
+
+
+#levels(Mm.RNA.alpha.un_normalized) <- rev(levels(Mm.RNA.alpha.un_normalized))
+
+#unnormalized1 <- DotPlot(Mm.RNA.alpha.un_normalized1, features = "Mafb",  scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"), idents = c("Mm-Alpha 1_RC_8W", "Mm-Alpha 1_RC_14W", "Mm-Alpha 1_RC_22W", "Mm-Alpha 1_HFD_8W", "Mm-Alpha 1_HFD_16W"), scale = F)+ ggtitle("Normalized using scran")
+
+normalized <- DotPlot(Mm.RNA.alpha.normalized, features =  c("Mafb","Arx", "Foxa2", "Pgam1"), scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"), idents =c("Mm-Alpha 1_RC_8W", "Mm-Alpha 1_RC_14W", "Mm-Alpha 1_RC_22W", "Mm-Alpha 1_HFD_8W", 
+                            "Mm-Alpha 1_HFD_16W"))+ ggtitle("Normalized using NormalizeData function in Seurat")
+#levels(Mm.RNA.alpha.normalized) <- rev(levels(Mm.RNA.alpha.normalized))
+
+
+normalized3 <- DotPlot(Mm.RNA.alpha.normalized3, features =  "Mafb", scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"), idents = Mm.scRNA.idents.to.use)+ ggtitle("")
+
+
+
+
+
+unnormalized|normalized
+```
+
+```{r}
+unnormalized <- DotPlot(Mm.RNA.alpha.un_normalized, features = "Pgam1",  scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"),idents = c("Mm-Alpha 1_RC_8W", "Mm-Alpha 1_RC_14W", "Mm-Alpha 1_RC_22W", "Mm-Alpha 1_HFD_8W", 
+                            "Mm-Alpha 1_HFD_16W"))+ ggtitle("Normalized using scran")+theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=8, color="black"),
+        axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6))
+
+unnormalized
+```
+
+
+
+```{r}
+levels(Mm.RNA.alpha.un_normalized) <- c("Mm-Alpha 1_RC_8W","Mm-Alpha 1_RC_14W","Mm-Alpha 1_RC_22W","Mm-Alpha 1_HFD_8W", "Mm-Alpha 1_HFD_16W", "Mm-Alpha 1_HFD_24W", 
+"Mm-Alpha 2_RC_8W","Mm-Alpha 2_RC_14W","Mm-Alpha 2_RC_22W","Mm-Alpha 2_RC_30W","Mm-Alpha 2_HFD_8W", "Mm-Alpha 2_HFD_16W", "Mm-Alpha 2_HFD_24W")
+
+
+
+h.unnormalized <- DoHeatmap(Mm.RNA.alpha.un_normalized, features =  c("Mafb","Arx", "Foxa2", "Pgam1"), size = 2)+ ggtitle("Normalized with scran")
+
+h.normalized <- DoHeatmap(Mm.RNA.alpha.normalized, features =  c("Mafb","Arx", "Foxa2", "Pgam1"), size = 2)+ ggtitle("Normalized with Seurat")
+# 
+# h.unnormalized1 <- DoHeatmap(Mm.RNA.alpha.un_normalized1, features = "Mafb")+ ggtitle("Un-normalized1")
+# h.normalized3 <- DoHeatmap(Mm.RNA.alpha.normalized3, features =  "Mafb", scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"), idents = Mm.scRNA.idents.to.use)+ ggtitle("Normalized3")
+
+
+h.unnormalized|h.normalized
+
+```
+
+```{r}
+unnormalized <- DotPlot(Mm.RNA.alpha.un_normalized, features = c("Mafb","Arx", "Foxa2", "Pgam1"),  scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"))+ ggtitle("Normalized with scran")
+
+
+#unnormalized1 <- DotPlot(Mm.RNA.alpha.un_normalized1, features = "Mafb",  scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"), scale = F)+ ggtitle("Un-normalized1")
+
+normalized <- DotPlot(Mm.RNA.alpha.normalized, features =  c("Mafb","Arx", "Foxa2", "Pgam1"), scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"))+ ggtitle("Normalized with seurat")
+
+
+#normalized3 <- DotPlot(Mm.RNA.alpha.normalized3, features =  "Mafb", scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red"))+ ggtitle("Normalized3")
+
+
+unnormalized|normalized
+
+
+
+
+```
+
+
+
+
+
+
+
+
+
+
+```{r}
+V.unnormalized <- VlnPlot(Mm.RNA.alpha.un_normalized, features = c("Acly", "Gpx3", "G6pc2", "Kctd12", "Kcnk16", "Kcnj6", "Abcc8"),  stack = T, flip = T, idents = Mm.scRNA.idents.to.use)+ ggtitle("Un-normalized")
+
+V.normalized <- VlnPlot(Mm.RNA.alpha.normalized, features = c("Acly", "Gpx3", "G6pc2", "Kctd12", "Kcnk16", "Kcnj6", "Abcc8"), stack = T, flip = T, idents = Mm.scRNA.idents.to.use)+ ggtitle("Normalized")
+
+V.normalized2 <- VlnPlot(Mm.RNA.alpha.normalized2, features = c("Acly", "Gpx3", "G6pc2", "Kctd12", "Kcnk16", "Kcnj6", "Abcc8"), stack = T, flip = T, idents = Mm.scRNA.idents.to.use)+ ggtitle("Normalized2")
+
+V.normalized3 <- VlnPlot(Mm.RNA.alpha.normalized3, features = c("Acly", "Gpx3", "G6pc2", "Kctd12", "Kcnk16", "Kcnj6", "Abcc8"), stack = T, flip = T, idents = Mm.scRNA.idents.to.use)+ ggtitle("Normalized3")
+
+
+V.unnormalized|V.normalized|V.normalized2|V.normalized3
+
+```
+
+
+```{r}
+
+Mm.scRNA.idents.to.use <- c("Mm-Alpha 1 RC_8W", "Mm-Alpha 1 RC_14W", "Mm-Alpha 1 RC_22W", "Mm-Alpha 1 RC_30W", "Mm-Alpha 1 HFD_8W", 
+                            "Mm-Alpha 1 HFD_16W", "Mm-Alpha 1 HFD_24W")
+
+Mm.scRNA.alpha<- subset(Mm.scRNA, cellstates.updated=="Mm-Alpha 1")
+Mm.scRNA.alpha.normalized <- NormalizeData(Mm.scRNA.alpha)
+Mm.scRNA.alpha.normalized  <- FindVariableFeatures(Mm.scRNA.alpha.normalized)
+Mm.scRNA.alpha.normalized  <- ScaleData(Mm.scRNA.alpha.normalized)
+Mm.scRNA.alpha.normalized <- SetIdent(Mm.scRNA.alpha.normalized, value = Mm.scRNA.alpha.normalized$cellstates.diet.week.updated)
+
+
+Vln_Mm.scRNA.alpha.normalized <- VlnPlot(Mm.scRNA.alpha.normalized, features = c("Acly", "Gpx3", "G6pc2", "Kctd12", "Kcnk16", "Kcnj6", "Abcc8"), stack = T, flip = T)+ ggtitle("Mm.scRNA.alpha.normalized")
+
+
+Mm.scRNA.alpha_un_nor<- FindVariableFeatures(Mm.scRNA.alpha)
+Mm.scRNA.alpha_un_nor <- ScaleData(Mm.scRNA.alpha_un_nor)
+Mm.scRNA.alpha_un_nor <- SetIdent(Mm.scRNA.alpha_un_nor, value = Mm.scRNA.alpha_un_nor$cellstates.diet.week.updated)
+
+
+
+Vln_Mm.scRNA.alpha_un_nor <- VlnPlot(Mm.scRNA.alpha_un_nor, features = c("Acly", "Gpx3", "G6pc2", "Kctd12", "Kcnk16", "Kcnj6", "Abcc8"), stack = T, flip = T)+ ggtitle("Mm.scRNA.alpha_un_nor")
+
+Vln_Mm.scRNA.alpha.normalized|Vln_Mm.scRNA.alpha_un_nor|Vln_Mm.scRNA.alpha
+
+
+Vln_Mm.scRNA.alpha <- VlnPlot(Mm.scRNA, features = c("Acly", "Gpx3", "G6pc2", "Kctd12", "Kcnk16", "Kcnj6", "Abcc8"), stack = T, flip = T, idents = Mm.scRNA.idents.to.use )+ ggtitle("Mm.scRNA")
+
+
+Vln_Mm.scRNA.alpha.normalized|Vln_Mm.scRNA.alpha_un_nor|Vln_Mm.scRNA.alpha
+
+```
+```{r}
+p1 <- DotPlot(HFD_RC_combined, features = c("Arx", "Gpx3", "Cd74", "G6pc2", "Kctd12", "Kcnk16"))
+```
+
+```{r}
+HFD_RC_combined.norm <- NormalizeData(HFD_RC_combined)
+
+p2 <- DotPlot(HFD_RC_combined.norm, features = c("Arx", "Gpx3", "Cd74", "G6pc2", "Kctd12", "Kcnk16"), idents = "Mm-Immune 1")
+```
+
+
+```{r}
+p1|p2
+```
+
+```{r}
+Mm_immune_1 <- subset(HFD_RC_combined, cluster_name == "Mm-Immune 1")
+Mm_immune_1$cell.diet.week <- paste0(Mm_immune_1$cluster_name, " ", Mm_immune_1$Diet_Week)
+Mm_immune_1 <-  SetIdent(Mm_immune_1, value =  Mm_immune_1$cell.diet.week)
+
+p1 <- DotPlot(Mm_immune_1, features = genessdf)
+```
+
+
+```{r}
+Mm_immune_1.norm <-  SetIdent(Mm_immune_1.norm, value =  Mm_immune_1.norm$cell.diet.week)
+
+Mm_immune_1.norm <- NormalizeData(Mm_immune_1)
+Mm_immune_1.norm$cell.diet.week <- paste0(Mm_immune_1.norm$cluster_name, " ", Mm_immune_1.norm$Diet_Week)
+
+p5 <- DotPlot(Mm_immune_1.norm, features = genessdf)
+
+
+p4|p5
+```
+
+```{r}
+HFD_RC_combined$cell.diet.week <- paste0(HFD_RC_combined$cluster_name, " ", HFD_RC_combined$Diet_Week)
+HFD_RC_combined <-  SetIdent(HFD_RC_combined, value =  HFD_RC_combined$cell.diet.week)
+Idents(HFD_RC_combined)
+
+idents.to.use12 <- c("Mm-Immune 1 RC_30W","Mm-Immune 1 RC_22W", "Mm-Immune 1 RC_14W", "Mm-Immune 1 RC_8W",  "Mm-Immune 1 HFD_24W",  "Mm-Immune 1 HFD_16W", "Mm-Immune 1 HFD_8W")
+ p6 <- DotPlot(HFD_RC_combined, features = genessdf, idents = idents.to.use12)
+
+```
+
+```{r}
+p1|p5|p6
+```
+
+```{r}
+genessdf <- c("Ccl3","Ccl4","Rgs1","Egr2","Tnip3","Cd209a","Mrc1","Folr2","F13a1","C1qb","C1qa","Apoe","Cd79b","Ly6d","Igkc","Cd3g","Trbc2","Cd3e","Il1rl1","Ly6a","Itk","Plac8","Fn1","Ly6c2","Xcr1","Clec9a","Wdfy4","Retnlg","S100a9","S100a8")
+```
+
+```{r}
+Mm.RNA.alpha.un_normalized <- readRDS("E:/Islet Project/RDS File/After removal/ENDOCRINE/alpha/RC_HFD_Endocrine_Alpha_after_merging_reremoval.Rds")
+
+Alpha1.cellids <- colnames(Mm.RNA.alpha.un_normalized)
+
+for (i in 1:length(Alpha1.cellids)) {
+  for (j in 1:nrow(HFD_RC_combined@meta.data)) {
+  
+      if (rownames(HFD_RC_combined@meta.data)[j] == Alpha1.cellids[i]) {
+HFD_RC_combined@meta.data$new.cellstate[i] <- "Mm-Alpha 1"    
+  
+}
+  
+    
+  }
+  
+}
+
+
+
+```
+
+
+
+
+
+

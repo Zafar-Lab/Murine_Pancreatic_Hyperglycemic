@@ -1,0 +1,874 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+# Extract the expression data for the two genes
+exp <- FetchData(beta2_subset, vars = c("Ccl27a", "Snai1"))
+
+# Filter cells with non-zero expression for both genes
+filter <- rownames(exp[exp$Ccl27a > 0 & exp$Snai1 > 0, ])
+
+# Use FeatureScatter to create the plot
+FeatureScatter(
+  object = beta1_subset,
+  feature1 = "Ccl27a",
+  feature2 = "Asxl1",
+  cells = filtered_cells,
+  plot.cor = TRUE
+)
+
+```
+
+```{r}
+Trans_fact_Ccl27 <- read.delim("C:\\Users\\LAB20\\Downloads\\TFLink_tfs_of_A2AMS7.tsv", header = TRUE, sep = "\t")
+unique_tfs <- Trans_fact_Ccl27$Name.TF
+
+
+# Loop through each transcription factor and generate a FeatureScatter plot if the TF is present
+for (tf in unique_tfs) {
+  # Check if the TF is present in the Seurat object
+  if (tf %in% rownames(beta1_subset@assays$RNA@data)) {
+    # Extract expression data for Ccl27a and the current transcription factor
+    expression_data <- FetchData(beta1_subset, vars = c("Ccl27a", tf))
+    
+    # Filter cells with non-zero expression for both genes
+    filtered_cells <- rownames(expression_data[expression_data$Ccl27a > 0 & expression_data[[tf]] > 0, ])
+    
+    # Generate scatter plot for each TF vs Ccl27a using the filtered cells
+    plot <- FeatureScatter(
+      beta1_subset,
+      feature1 = "Ccl27a",
+      feature2 = tf,
+      cells = filtered_cells
+    )
+    
+    # Display the plot
+    print(plot)
+    
+    # Optionally, save the plot to a file
+    ggsave(paste0("D:\\CellChat_simran\\Filtered_featurescatter\\Beta1\\Ccl27a\\scatter_plot_", tf, ".png"), plot = plot, width = 8, height = 6, bg = "white")
+    
+  } else {
+    # Print a message if the TF is not found
+    message(paste("Feature", tf, "not found in the Seurat object. Skipping..."))
+  }
+}
+
+```
+```{r}
+# Initialize a data frame to store the TF, R value, and p-value
+correlation_results_ccl27_beta1 <- data.frame(TF = character(), R_value = numeric(), p_value = numeric(), stringsAsFactors = FALSE)
+
+# Initialize a data frame to store correlation results
+correlation_results_ccl27_beta1 <- data.frame(TF = character(), R_value = numeric(), p_value = numeric(), stringsAsFactors = FALSE)
+
+# Loop through each TF and generate a feature scatter plot if the TF is present
+for (tf in unique_tfs) {
+  # Check if the TF is present in the Seurat object
+  if (tf %in% rownames(beta1_subset@assays$RNA@data)) {
+    # Extract expression data for the genes "Ccl27a" and the current TF
+    expression_data_beta1 <- FetchData(beta1_subset, vars = c("Ccl27a", tf))
+    
+    # Filter cells with non-zero expression for both genes
+    filtered_cells <- rownames(expression_data_beta1[expression_data_beta1$Ccl27a > 0 & expression_data_beta1[[tf]] > 0, ])
+    
+    # Check if there are any cells left after filtering
+    if (length(filtered_cells) > 0) {
+      # Extract the expression data for the filtered cells
+      filtered_cells.df <- expression_data_beta1[filtered_cells, , drop = FALSE]
+      
+      # Convert columns to numeric to avoid errors in correlation test
+      filtered_cells.df$Ccl27a <- as.numeric(filtered_cells.df$Ccl27a)
+      filtered_cells.df[[tf]] <- as.numeric(filtered_cells.df[[tf]])
+      
+      # Perform Pearson correlation test
+      cor_test <- cor.test(filtered_cells.df$Ccl27a, filtered_cells.df[[tf]], method = "pearson")
+      
+      # Extract R value (correlation coefficient) and p-value
+      r_value <- cor_test$estimate
+      p_value <- cor_test$p.value
+      
+      # Save the TF, R value, and p-value to the results data frame
+      correlation_results_ccl27_beta1 <- rbind(correlation_results_ccl27_beta1, data.frame(TF = tf, R_value = r_value, p_value = p_value))
+    } else {
+      message(paste("No cells with non-zero expression for both 'Ccl27a' and", tf, ". Skipping..."))
+    }
+  } else {
+    message(paste("Feature", tf, "not found in the Seurat object. Skipping..."))
+  }
+}
+
+```
+```{r}
+expression_data <- FetchData(beta1_subset, vars = c("Ccl27a", "Arnt2"))
+filtered_cells <- (expression_data[expression_data$Ccl27a > 0 & expression_data$Arnt2 > 0, ])
+
+ # Perform Pearson correlation test
+cor_test <- cor.test(filtered_cells$Ccl27a, filtered_cells$Arnt2, method = "pearson")
+    
+# Extract R value (correlation coefficient) and p-value
+r_value <- cor_test$estimate
+p_value <- cor_test$p.value
+```
+
+```{r}
+# Define the list of unique transcription factors
+unique_tfs <- Trans_fact_Ccl27$Name.TF
+
+# Remove specific transcription factors (Gata3 and Tbx21)
+unique_tfs <- setdiff(unique_tfs, c("Gata3", "Tbx21"))
+
+# Print the updated list of unique transcription factors
+print(unique_tfs)
+
+# Initialize a data frame to store correlation results
+correlation_results_ccl27_beta1 <- data.frame(TF = character(), R_value = numeric(), p_value = numeric(), stringsAsFactors = FALSE)
+
+# Loop through each TF and generate a feature scatter plot if the TF is present
+for (tf in unique_tfs) {
+  # Check if the TF is present in the Seurat object
+  if (tf %in% rownames(beta1_subset@assays$RNA@data)) {
+    # Extract expression data for the genes "Ccl27a" and the current TF
+    expression_data_beta1 <- FetchData(beta1_subset, vars = c("Ccl27a", tf))
+    
+    # Filter cells with non-zero expression for both genes
+    filtered_cells <- expression_data_beta1[expression_data_beta1$Ccl27a > 0 & expression_data_beta1[[tf]] > 0, ]
+    
+    # Remove rows with NA or infinite values
+    filtered_cells <- filtered_cells[is.finite(filtered_cells$Ccl27a) & is.finite(filtered_cells[[tf]]), ]
+    
+    # Check if there are at least two valid observations for the correlation test
+    if (nrow(filtered_cells) >= 2) {
+      # Perform Pearson correlation test
+      cor_test <- cor.test(filtered_cells$Ccl27a, filtered_cells[[tf]], method = "pearson")
+      
+      # Extract R value (correlation coefficient) and p-value
+      r_value <- cor_test$estimate
+      p_value <- cor_test$p.value
+      
+      # Save the TF, R value, and p-value to the results data frame
+      correlation_results_ccl27_beta1 <- rbind(correlation_results_ccl27_beta1, data.frame(TF = tf, R_value = r_value, p_value = p_value))
+    } else {
+      message(paste("Not enough finite observations for correlation test between 'Ccl27a' and", tf, ". Skipping..."))
+    }
+  } else {
+    message(paste("Feature", tf, "not found in the Seurat object. Skipping..."))
+  }
+}
+
+
+write.csv(correlation_results_ccl27_beta1, "D:\\CellChat_simran\\Filtered_featurescatter\\Beta1\\Filtered_beta1_ccl72a.csv")      
+```
+
+```{r}
+# Extract expression data for the genes "Mif" and the current TF
+expression_data <- FetchData(beta1_subset, vars = c("Arnt2", "Ccl27a"))
+    
+# Convert the extracted data to a data frame
+expression_df <- as.data.frame(expression_data)
+    
+# Generate scatter plot using ggscatter
+ggscatter(expression_df, x = "Ccl27a", y = "Arnt2", 
+                      add = "reg.line", conf.int = FALSE, 
+                      cor.coef = TRUE, cor.method = "pearson",
+                      xlab = "Ccl27a", ylab = "Arnt2", 
+                      xscale = "log2", yscale = "log2")
+    
+    
+```
+```{r}
+ggscatter(expression_df, x = "Ccl27a", y = "Arnt2", 
+                      add = "reg.line", conf.int = FALSE, 
+                      cor.coef = TRUE, cor.method = "pearson",
+                      xlab = "Ccl27a", ylab = "Arnt2")
+```
+```{r}
+# Extract expression data for the genes "Mif" and the current TF
+expression_data <- FetchData(beta1_subset, vars = c("Ccl27a", "Cxxc1"))
+    
+# Convert the extracted data to a data frame
+expression_df <- as.data.frame(expression_data)
+    
+# Generate scatter plot using ggscatter
+ggscatter(expression_df, x = "Ccl27a", y = "Cxxc1", 
+                      add = "reg.line", conf.int = FALSE, 
+                      cor.coef = TRUE, cor.method = "pearson",
+                      xlab = "Ccl27a", ylab = "Cxxc1", 
+                      xscale = "log2", yscale = "log2")
+```
+```{r}
+# Generate scatter plot using ggscatter
+ggscatter(expression_df, x = "Ccl27a", y = "Cxxc1", 
+                      add = "reg.line", conf.int = FALSE, 
+                      cor.coef = TRUE, cor.method = "pearson",
+                      xlab = "Ccl27a", ylab = "Cxxc1")
+```
+```{r}
+beta2_subset <- subset(seurat_obj, subset = cluster_name == "Mm-Beta 2")
+beta2_subset
+```
+```{r}
+# Extract the expression data for the two genes
+expression_data <- FetchData(beta2_subset, vars = c("Ccl27a", "Anpep"))
+
+# Filter cells with non-zero expression for both genes
+filtered_cells <- rownames(expression_data[expression_data$Ccl27a > 0 & expression_data$Anpep > 0, ])
+
+# Use FeatureScatter to create the plot
+FeatureScatter(
+  object = beta2_subset,
+  feature1 = "Ccl27a",
+  feature2 = "Anpep",
+  cells = filtered_cells,
+  plot.cor = TRUE
+)
+```
+```{r}
+# Loop through each transcription factor and generate a FeatureScatter plot if the TF is present
+for (tf in unique_tfs) {
+  # Check if the TF is present in the Seurat object
+  if (tf %in% rownames(beta2_subset@assays$RNA@data)) {
+    # Extract expression data for Ccl27a and the current transcription factor
+    expression_data <- FetchData(beta2_subset, vars = c("Ccl27a", tf))
+    
+    # Filter cells with non-zero expression for both genes
+    filtered_cells <- rownames(expression_data[expression_data$Ccl27a > 0 & expression_data[[tf]] > 0, ])
+    
+    # Generate scatter plot for each TF vs Ccl27a using the filtered cells
+    plot <- FeatureScatter(
+      beta2_subset,
+      feature1 = "Ccl27a",
+      feature2 = tf,
+      cells = filtered_cells
+    )
+    
+    # Display the plot
+    print(plot)
+    
+    # Optionally, save the plot to a file
+    ggsave(paste0("D:\\CellChat_simran\\Filtered_featurescatter\\Beta2\\Ccl27a\\scatter_plot_", tf, ".png"), plot = plot, width = 8, height = 6, bg = "white")
+    
+  } else {
+    # Print a message if the TF is not found
+    message(paste("Feature", tf, "not found in the Seurat object. Skipping..."))
+  }
+}
+```
+```{r}
+# Extract expression data for the genes "Mif" and the current TF
+expression_data <- FetchData(beta2_subset, vars = c("Ccl27a", "Asxl1"))
+    
+# Convert the extracted data to a data frame
+expression_df <- as.data.frame(expression_data)
+    
+# Generate scatter plot using ggscatter
+ggscatter(expression_df, x = "Ccl27a", y = "Asxl1", 
+                      add = "reg.line", conf.int = FALSE, 
+                      cor.coef = TRUE, cor.method = "pearson",
+                      xlab = "Ccl27a", ylab = "Asxl1", 
+                      xscale = "log2", yscale = "log2")
+```
+```{r}
+ggscatter(expression_df, x = "Ccl27a", y = "Asxl1", 
+                      add = "reg.line", conf.int = FALSE, 
+                      cor.coef = TRUE, cor.method = "pearson",
+                      xlab = "Ccl27a", ylab = "Asxl1")
+```
+```{r}
+# Extract expression data for the genes "Mif" and the current TF
+expression_data <- FetchData(beta2_subset, vars = c("Ccl27a", "Cbx3"))
+    
+# Convert the extracted data to a data frame
+expression_df <- as.data.frame(expression_data)
+    
+# Generate scatter plot using ggscatter
+ggscatter(expression_df, x = "Ccl27a", y = "Cbx3", 
+                      add = "reg.line", conf.int = FALSE, 
+                      cor.coef = TRUE, cor.method = "pearson",
+                      xlab = "Ccl27a", ylab = "Cbx3", 
+                      xscale = "log2", yscale = "log2")
+```
+```{r}
+ggscatter(expression_df, x = "Ccl27a", y = "Cbx3", 
+                      add = "reg.line", conf.int = FALSE, 
+                      cor.coef = TRUE, cor.method = "pearson",
+                      xlab = "Ccl27a", ylab = "Cbx3")
+```
+```{r}
+# Define the list of unique transcription factors
+unique_tfs <- Trans_fact_Ccl27$Name.TF
+
+# Remove specific transcription factors (Gata3 and Tbx21)
+unique_tfs <- setdiff(unique_tfs, c("Bcl11b", "Ebf2", "Elf4", "Epop", "Erg", "Esr1", "Fli1", "Gata3", "Hand2", "Myb", "Ppara", "Runx2", "Tbx21", "Tead4", "Stat4", "Aurkb", "Batf", "Irf4", "Yap1"))
+
+# Print the updated list of unique transcription factors
+print(unique_tfs)
+
+# Initialize a data frame to store correlation results
+correlation_results_ccl27_beta2 <- data.frame(TF = character(), R_value = numeric(), p_value = numeric(), stringsAsFactors = FALSE)
+
+# Loop through each TF and generate a feature scatter plot if the TF is present
+for (tf in unique_tfs) {
+  # Check if the TF is present in the Seurat object
+  if (tf %in% rownames(beta2_subset@assays$RNA@data)) {
+    # Extract expression data for the genes "Ccl27a" and the current TF
+    expression_data_beta2 <- FetchData(beta2_subset, vars = c("Ccl27a", tf))
+    
+    # Filter cells with non-zero expression for both genes
+    filtered_cells <- expression_data_beta2[expression_data_beta2$Ccl27a > 0 & expression_data_beta2[[tf]] > 0, ]
+    
+    # Remove rows with NA or infinite values
+    filtered_cells <- filtered_cells[is.finite(filtered_cells$Ccl27a) & is.finite(filtered_cells[[tf]]), ]
+    
+    # Check if there are at least two valid observations for the correlation test
+    if (nrow(filtered_cells) >= 2) {
+      # Perform Pearson correlation test
+      cor_test <- cor.test(filtered_cells$Ccl27a, filtered_cells[[tf]], method = "pearson")
+      
+      # Extract R value (correlation coefficient) and p-value
+      r_value <- cor_test$estimate
+      p_value <- cor_test$p.value
+      
+      # Save the TF, R value, and p-value to the results data frame
+      correlation_results_ccl27_beta2 <- rbind(correlation_results_ccl27_beta2, data.frame(TF = tf, R_value = r_value, p_value = p_value))
+    } else {
+      message(paste("Not enough finite observations for correlation test between 'Ccl27a' and", tf, ". Skipping..."))
+    }
+  } else {
+    message(paste("Feature", tf, "not found in the Seurat object. Skipping..."))
+  }
+}
+
+
+write.csv(correlation_results_ccl27_beta2, "D:\\CellChat_simran\\Filtered_featurescatter\\Beta2\\Filtered_beta2_ccl72a.csv")     
+```
+
+```{r}
+Trans_fact_mif <- read.delim("C:\\Users\\LAB20\\Downloads\\TFLink_tfs_of_P34884.tsv", header = TRUE, sep = "\t")
+
+# Extract unique TF names from the column Name.TF
+unique_tfs_mif <- unique(Trans_fact_mif$Name.TF)
+
+
+# Loop through each transcription factor and generate a FeatureScatter plot if the TF is present
+for (tf in unique_tfs) {
+  # Check if the TF is present in the Seurat object
+  if (tf %in% rownames(beta1_subset@assays$RNA@data)) {
+    # Extract expression data for Ccl27a and the current transcription factor
+    expression_data <- FetchData(beta1_subset, vars = c("Mif", tf))
+    
+    # Filter cells with non-zero expression for both genes
+    filtered_cells <- rownames(expression_data[expression_data$Mif > 0 & expression_data[[tf]] > 0, ])
+    
+    # Generate scatter plot for each TF vs Ccl27a using the filtered cells
+    plot <- FeatureScatter(
+      beta1_subset,
+      feature1 = "Mif",
+      feature2 = tf,
+      cells = filtered_cells
+    )
+    
+    # Display the plot
+    print(plot)
+    
+    # Optionally, save the plot to a file
+    ggsave(paste0("D:\\CellChat_simran\\Filtered_featurescatter\\Beta1\\Mif\\scatter_plot_", tf, ".png"), plot = plot, width = 8, height = 6, bg = "white")
+    
+  } else {
+    # Print a message if the TF is not found
+    message(paste("Feature", tf, "not found in the Seurat object. Skipping..."))
+  }
+}
+```
+```{r}
+# Extract expression data for the genes "Mif" and the current TF
+expression_data <- FetchData(beta1_subset, vars = c("Mif", "Arid3a"))
+    
+# Convert the extracted data to a data frame
+expression_df <- as.data.frame(expression_data)
+    
+# Generate scatter plot using ggscatter
+ggscatter(expression_df, x = "Mif", y = "Arid3a", 
+                      add = "reg.line", conf.int = FALSE, 
+                      cor.coef = TRUE, cor.method = "pearson",
+                      xlab = "Mif", ylab = "Arid3a", 
+                      xscale = "log2", yscale = "log2")
+```
+```{r}
+# Generate scatter plot using ggscatter
+ggscatter(expression_df, x = "Mif", y = "Arid3a", 
+                      add = "reg.line", conf.int = FALSE, 
+                      cor.coef = TRUE, cor.method = "pearson",
+                      xlab = "Mif", ylab = "Arid3a")
+```
+```{r}
+# Loop through each transcription factor and generate a FeatureScatter plot if the TF is present
+for (tf in unique_tfs) {
+  # Check if the TF is present in the Seurat object
+  if (tf %in% rownames(beta2_subset@assays$RNA@data)) {
+    # Extract expression data for Ccl27a and the current transcription factor
+    expression_data <- FetchData(beta2_subset, vars = c("Mif", tf))
+    
+    # Filter cells with non-zero expression for both genes
+    filtered_cells <- rownames(expression_data[expression_data$Mif > 0 & expression_data[[tf]] > 0, ])
+    
+    # Generate scatter plot for each TF vs Ccl27a using the filtered cells
+    plot <- FeatureScatter(
+      beta2_subset,
+      feature1 = "Mif",
+      feature2 = tf,
+      cells = filtered_cells
+    )
+    
+    # Display the plot
+    print(plot)
+    
+    # Optionally, save the plot to a file
+    ggsave(paste0("D:\\CellChat_simran\\Filtered_featurescatter\\Beta2\\Mif\\scatter_plot_", tf, ".png"), plot = plot, width = 8, height = 6, bg = "white")
+    
+  } else {
+    # Print a message if the TF is not found
+    message(paste("Feature", tf, "not found in the Seurat object. Skipping..."))
+  }
+}
+```
+```{r}
+# Define the list of unique transcription factors
+#unique_tfs <- Trans_fact_Ccl27$Name.TF
+
+# Remove specific transcription factors (Gata3 and Tbx21)
+unique_tfs <- setdiff(unique_tfs, c("Tbx21"))
+
+# Print the updated list of unique transcription factors
+#print(unique_tfs)
+
+# Initialize a data frame to store correlation results
+correlation_results_mif_beta2 <- data.frame(TF = character(), R_value = numeric(), p_value = numeric(), stringsAsFactors = FALSE)
+
+# Loop through each TF and generate a feature scatter plot if the TF is present
+for (tf in unique_tfs) {
+  # Check if the TF is present in the Seurat object
+  if (tf %in% rownames(beta2_subset@assays$RNA@data)) {
+    # Extract expression data for the genes "Ccl27a" and the current TF
+    expression_data_beta2 <- FetchData(beta2_subset, vars = c("Mif", tf))
+    
+    # Filter cells with non-zero expression for both genes
+    filtered_cells <- expression_data_beta2[expression_data_beta2$Mif > 0 & expression_data_beta2[[tf]] > 0, ]
+    
+    # Remove rows with NA or infinite values
+    filtered_cells <- filtered_cells[is.finite(filtered_cells$Mif) & is.finite(filtered_cells[[tf]]), ]
+    
+    # Check if there are at least two valid observations for the correlation test
+    if (nrow(filtered_cells) >= 2) {
+      # Perform Pearson correlation test
+      cor_test <- cor.test(filtered_cells$Mif, filtered_cells[[tf]], method = "pearson")
+      
+      # Extract R value (correlation coefficient) and p-value
+      r_value <- cor_test$estimate
+      p_value <- cor_test$p.value
+      
+      # Save the TF, R value, and p-value to the results data frame
+      correlation_results_mif_beta2 <- rbind(correlation_results_mif_beta2, data.frame(TF = tf, R_value = r_value, p_value = p_value))
+    } else {
+      message(paste("Not enough finite observations for correlation test between 'Mif' and", tf, ". Skipping..."))
+    }
+  } else {
+    message(paste("Feature", tf, "not found in the Seurat object. Skipping..."))
+  }
+}
+
+
+write.csv(correlation_results_mif_beta2, "D:\\CellChat_simran\\Filtered_featurescatter\\Beta2\\Filtered_beta2_mif.csv")  
+```
+
+```{r}
+# Initialize a data frame to store correlation results
+correlation_results_mif_beta1 <- data.frame(TF = character(), R_value = numeric(), p_value = numeric(), stringsAsFactors = FALSE)
+
+# Loop through each TF and generate a feature scatter plot if the TF is present
+for (tf in unique_tfs) {
+  # Check if the TF is present in the Seurat object
+  if (tf %in% rownames(beta1_subset@assays$RNA@data)) {
+    # Extract expression data for the genes "Ccl27a" and the current TF
+    expression_data_beta1 <- FetchData(beta1_subset, vars = c("Mif", tf))
+    
+    # Filter cells with non-zero expression for both genes
+    filtered_cells <- expression_data_beta1[expression_data_beta1$Mif > 0 & expression_data_beta1[[tf]] > 0, ]
+    
+    # Remove rows with NA or infinite values
+    filtered_cells <- filtered_cells[is.finite(filtered_cells$Mif) & is.finite(filtered_cells[[tf]]), ]
+    
+    # Check if there are at least two valid observations for the correlation test
+    if (nrow(filtered_cells) >= 2) {
+      # Perform Pearson correlation test
+      cor_test <- cor.test(filtered_cells$Mif, filtered_cells[[tf]], method = "pearson")
+      
+      # Extract R value (correlation coefficient) and p-value
+      r_value <- cor_test$estimate
+      p_value <- cor_test$p.value
+      
+      # Save the TF, R value, and p-value to the results data frame
+      correlation_results_mif_beta1 <- rbind(correlation_results_mif_beta1, data.frame(TF = tf, R_value = r_value, p_value = p_value))
+    } else {
+      message(paste("Not enough finite observations for correlation test between 'Mif' and", tf, ". Skipping..."))
+    }
+  } else {
+    message(paste("Feature", tf, "not found in the Seurat object. Skipping..."))
+  }
+}
+
+
+write.csv(correlation_results_mif_beta1, "D:\\CellChat_simran\\Filtered_featurescatter\\Beta1\\Filtered_beta1_mif.csv")  
+```
+
+```{r}
+# Extract expression data for the genes "Mif" and the current TF
+expression_data <- FetchData(beta1_subset, vars = c("Mif", "Sp1"))
+    
+# Convert the extracted data to a data frame
+expression_df <- as.data.frame(expression_data)
+    
+# Generate scatter plot using ggscatter
+ggscatter(expression_df, x = "Mif", y = "Sp1", 
+                      add = "reg.line", conf.int = FALSE, 
+                      cor.coef = TRUE, cor.method = "pearson",
+                      xlab = "Mif", ylab = "Sp1", 
+                      xscale = "log2", yscale = "log2")
+```
+```{r}
+ggscatter(expression_df, x = "Mif", y = "Sp1", 
+                      add = "reg.line", conf.int = FALSE, 
+                      cor.coef = TRUE, cor.method = "pearson",
+                      xlab = "Mif", ylab = "Sp1")
+                      
+```
+```{r}
+# Initialize a data frame to store the number of filtered cells for each TF
+beta1_filtered_cells_count_df_ccl27 <- data.frame(TF = character(), FilteredCellsCount = numeric(), stringsAsFactors = FALSE)
+
+# Loop through each transcription factor and count the filtered cells
+for (tf in unique_tfs) {
+  # Check if the TF is present in the Seurat object
+  if (tf %in% rownames(beta1_subset@assays$RNA@data)) {
+    # Extract expression data for Ccl27a and the current transcription factor
+    expression_data <- FetchData(beta1_subset, vars = c("Ccl27a", tf))
+    
+    # Filter cells with non-zero expression for both genes
+    filtered_cells <- rownames(expression_data[expression_data$Ccl27a > 0 & expression_data[[tf]] > 0, ])
+    
+    # Add the TF and filtered cell count to the data frame
+    beta1_filtered_cells_count_df_ccl27 <- rbind(beta1_filtered_cells_count_df_ccl27, data.frame(TF = tf, FilteredCellsCount = length(filtered_cells)))
+    
+  } else {
+    # Print a message if the TF is not found
+    message(paste("Feature", tf, "not found in the Seurat object. Skipping..."))
+  }
+}
+
+
+# Display the resulting table with filtered cells count
+print(filtered_cells_count_df)
+
+
+write.csv(beta1_filtered_cells_count_df_ccl27, "D:/CellChat_simran/Filtered_featurescatter/Beta1/Cell_counts_beta1_ccl27.csv")
+
+```
+```{r}
+# Load necessary libraries
+library(readr)
+library(pheatmap)
+
+# Load the data from the CSV file
+file_path <- "path_to_your_file/TF_target.csv"  # Update the file path
+correlation_data <- read.csv("D:\\CellChat_simran\\human sc RNA SEQ\\TF_target.csv")
+
+# Convert the data to a matrix for plotting
+correlation_matrix <- as.matrix(correlation_data[, -1])  # Exclude the first column (assumed to be gene names)
+rownames(correlation_matrix) <- correlation_data$Gene  # Assign row names
+
+# Plot the heatmap using pheatmap
+pheatmap(
+  correlation_matrix,
+  cluster_rows = FALSE,     # Cluster rows (TFs)
+  cluster_cols = FALSE,    # No clustering for columns (since there's only one target)
+  color = colorRampPalette(c("blue", "white", "red"))(100),  # Blue to red color scale
+  border_color = NA,       # No border color
+  main = "Correlation Heatmap: Ccl27a vs TFs",
+  fontsize_row = 10,       # Font size for TF labels
+  fontsize_col = 12        # Font size for target label
+)
+
+```
+
+```{r}
+# Convert the data to a matrix for plotting
+# Ensure the data is numeric and handle NAs
+correlation_matrix <- as.matrix(correlation_data[, -1])  # Exclude the first column (gene names)
+rownames(correlation_matrix) <- correlation_data$TF  # Assign row names
+
+# Convert non-numeric values to NA and remove NAs
+correlation_matrix <- apply(correlation_matrix, 2, as.numeric)
+correlation_matrix[is.na(correlation_matrix)] <- 0  # Replace NAs with 0 (or another appropriate value)
+
+# Plot the heatmap using pheatmap
+pheatmap(
+  correlation_matrix,
+  cluster_rows = FALSE,     # No clustering for rows
+  cluster_cols = FALSE,     # No clustering for columns
+  color = colorRampPalette(c("blue", "white", "red"))(100),  # Blue to red color scale
+  border_color = NA,        # No border color
+  main = "Correlation Heatmap: Ccl27a vs TFs",
+  fontsize_row = 10,        # Font size for TF labels
+  fontsize_col = 12         # Font size for target label
+)
+```
+
+
+```{r}
+# Load required libraries
+library(reshape2)
+library(RColorBrewer)
+library(pheatmap)
+
+# Reshape the data for the heatmap (ensure TF and Target are in correct format)
+heatmap_data <- dcast(correlation_data, TF ~ Target, value.var = "Correlation")
+
+# Convert to a data frame or matrix
+heatmap_data <- as.data.frame(heatmap_data)
+
+# Set the TF names as row names and remove the first column
+rownames(heatmap_data) <- heatmap_data$TF  # Ensure TF is the correct column name
+heatmap_data <- heatmap_data[, -1]  # Remove the first column (since it's now used as row names)
+
+# Replace NA values with 0 or any other desired value
+heatmap_data[is.na(heatmap_data)] <- 0
+
+# Define the color palette
+color_palette <- brewer.pal(9, "Blues")  # 9 shades of blue
+
+# Plot the heatmap with proper labeling
+pheatmap(
+  heatmap_data,
+  cluster_rows = FALSE,   # Do not cluster rows
+  cluster_cols = FALSE,   # Do not cluster columns
+  display_numbers = FALSE, # Optionally show values in cells
+  color = color_palette,
+  main = "Correlation Heatmap: Ccl27a vs TFs",
+  fontsize_row = 8,       # Font size for row labels (TF names)
+  fontsize_col = 10       # Font size for column labels (Target names)
+)
+
+```
+
+```{r}
+# Load required libraries
+library(reshape2)
+library(RColorBrewer)
+library(pheatmap)
+
+# Reshape the data for the heatmap
+heatmap_data <- dcast(correlation_data, TF ~ Target, value.var = "Correlation")
+
+# Convert to a data frame
+heatmap_data <- as.data.frame(heatmap_data)
+
+# Check if the TF names are set correctly as row names
+if ("TF" %in% colnames(heatmap_data)) {
+  rownames(heatmap_data) <- heatmap_data$TF  # Set TF as row names
+  heatmap_data <- heatmap_data[, -1]  # Remove the TF column
+}
+
+# Check if there are row names
+print(rownames(heatmap_data))
+
+# Replace NA values with 0 (optional)
+heatmap_data[is.na(heatmap_data)] <- 0
+
+# Define the color palette
+color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
+
+# Plot the heatmap with proper labeling
+pheatmap(
+  heatmap_data,
+  cluster_rows = FALSE,   # Do not cluster rows
+  cluster_cols = FALSE,   # Do not cluster columns
+  display_numbers = TRUE, # Optionally show values in cells
+  color = color_palette,
+  main = "Correlation Heatmap: Ccl27a vs TFs",
+  fontsize_row = 10,      # Font size for row labels (TF names)
+  fontsize_col = 12       # Font size for column labels (Target names)
+)
+
+```
+
+
+```{r}
+# Load required libraries
+library(reshape2)
+library(RColorBrewer)
+library(pheatmap)
+
+correlation_data <- read.csv("D:\\CellChat_simran\\human sc RNA SEQ\\TF_target_load.csv")
+
+# Reshape the data for the heatmap
+heatmap_data <- dcast(correlation_data, TF ~ Target, value.var = "Correlation")
+
+# Print the reshaped data to check its structure
+print(head(heatmap_data))
+
+# Check if the "TF" column exists and set it as row names
+if ("TF" %in% colnames(heatmap_data)) {
+  rownames(heatmap_data) <- heatmap_data$TF  # Set TF as row names
+  heatmap_data <- heatmap_data[, -1]  # Remove the first column (TF column)
+} else {
+  stop("The column 'TF' is not found in the reshaped data!")
+}
+
+rownames(heatmap_data) <- heatmap_data$TF
+heatmap_data <- heatmap_data[, -1]
+# Check the resulting data structure
+print(head(heatmap_data))
+
+# Replace NA values with 0 if any (optional)
+heatmap_data[is.na(heatmap_data)] <- 0
+
+# Define the color palette
+color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
+
+# Plot the heatmap
+pheatmap(
+  heatmap_data,
+  cluster_rows = FALSE,   # Do not cluster rows
+  cluster_cols = FALSE,   # Do not cluster columns
+  display_numbers = TRUE, # Optionally show values in cells
+  color = color_palette,
+  main = "Correlation Heatmap: Ccl27a vs TFs",
+  fontsize_row = 10,      # Font size for row labels (TF names)
+  fontsize_col = 12       # Font size for column labels (Target name)
+)
+
+
+# Set the TF column as row names and remove it from the data frame
+rownames(heatmap_data) <- heatmap_data$TF  # Use the TF column as row names
+heatmap_data <- heatmap_data[, -1, drop = FALSE]  # Remove the first column (TF) and keep matrix structure
+#heatmap_data <- desc(heatmap_data$Ccl27a)
+
+# Arrange heatmap_data in descending order by the Ccl27a column
+heatmap_data <- heatmap_data[order(heatmap_data$Ccl27a, decreasing = TRUE), , drop = FALSE]
+
+
+# Replace NA values with 0 if any
+heatmap_data[is.na(heatmap_data)] <- 0
+
+# Define the color palette
+color_palette <- colorRampPalette(brewer.pal(10, "Reds"))(100)
+
+# Plot the heatmap
+corr_plot <- pheatmap(
+  heatmap_data,
+  cluster_rows = FALSE,   # Do not cluster rows (TFs)
+  cluster_cols = FALSE,   # Do not cluster columns (since there's only one target, Ccl27a)
+  display_numbers = FALSE, # Show correlation values in cells
+  #number_color = "black",
+  color = color_palette,
+  fontsize_row = 10,      # Font size for row labels (TF names)
+  fontsize_col = 12       # Font size for column labels (Target name)
+)
+
+ggsave(plot = corr_plot, filename = "D:\\CellChat_simran\\human sc RNA SEQ\\correlation_beta2_TF_without_numbers.tiff", units = "in", height = 6, width = 2.5, dpi = 300)
+```
+
+```{r}
+correlation_data <- read.csv("D:\\CellChat_simran\\human sc RNA SEQ\\common_TF.csv")
+
+# Reshape the data for the heatmap
+heatmap_data <- dcast(correlation_data, TF ~ Target, value.var = "Correlation")
+
+rownames(heatmap_data) <- heatmap_data$TF  # Use the TF column as row names
+heatmap_data <- heatmap_data[, -1, drop = FALSE]  # Remove the first column (TF) and keep matrix structure
+
+# Arrange heatmap_data in descending order by the Ccl27a column
+heatmap_data <- heatmap_data[order(heatmap_data$Ccl27a, decreasing = TRUE), , drop = FALSE]
+
+corr_plot <- pheatmap(
+  heatmap_data,
+  cluster_rows = FALSE,   # Do not cluster rows (TFs)
+  cluster_cols = FALSE,   # Do not cluster columns (since there's only one target, Ccl27a)
+  display_numbers = FALSE, # Show correlation values in cells
+  #number_color = "black",
+  color = color_palette,
+  fontsize_row = 10,      # Font size for row labels (TF names)
+  fontsize_col = 12       # Font size for column labels (Target name)
+)
+
+ggsave(plot = corr_plot, filename = "D:\\CellChat_simran\\human sc RNA SEQ\\correlation_beta2_selected_TF_without_numbers.tiff", units = "in", height = 5, width = 2.5, dpi = 300)
+```
+
+```{r}
+# Load necessary library
+library(pheatmap)
+library(RColorBrewer)
+
+# Create a data frame with the provided data
+data <- read.table(text = "
+TF	Ccl27a	Stat3	Vdr	Rad21	Foxa2	Smarca4	Kdm1a	Pbrm1	Insm1	Brd2	Chd4	Ncor1
+Stat3	0.79	1	0	0	0	0	0	0	0	0	0	0
+Vdr	0.72	0	1	0	0	0	0	0	0	0	0	0
+Rad21	0.66	0	0	1	0	0	0	0	0	0	0	0
+Foxa2	0.65	0	0	0	1	0	0	0	0	0	0	0
+Smarca4	0.63	0	0	0	0	1	0	0	0	0	0	0
+Kdm1a	0.61	0	0	0	0	0	1	0	0	0	0	0
+Pbrm1	0.6	0	0	0	0	0	0	1	0	0	0	0
+Insm1	0.57	0	0	0	0	0	0	0	1	0	0	0
+Brd2	0.55	0	0	0	0	0	0	0	0	1	0	0
+Chd4	0.53	0	0	0	0	0	0	0	0	0	1	0
+Ncor1	0.53	0	0	0	0	0	0	0	0	0	0	1
+", header = TRUE, sep = "\t")
+
+# Set the TF column as row names and remove it from the data frame
+rownames(correlation_data) <- correlation_data$TF
+correlation_data <- correlation_data[, -1]  # Remove the first column (TF names) to keep only numeric data
+
+# Define color palette
+color_palette <- colorRampPalette(c("blue", "white", "red"))(100)
+
+# Plot the heatmap
+corre_ccl <- pheatmap(
+  correlation_data[, "Ccl27a", drop = FALSE],  # Only show correlations with Ccl27a
+  cluster_rows = FALSE,            # Do not cluster rows (TFs)
+  cluster_cols = FALSE,            # Do not cluster columns (since there's only one target, Ccl27a)
+  display_numbers = TRUE,          # Show correlation values in cells
+  color = color_palette,           # Set color scale
+  main = "Correlation Heatmap: Ccl27a vs TFs",
+  fontsize_row = 10,               # Font size for row labels (TF names)
+  fontsize_col = 12                # Font size for column labels (Target name)
+)
+
+
+```
+
+```{r}
+corre_ccl_a <- pheatmap(
+  correlation_data,  # Only show correlations with Ccl27a
+  cluster_rows = FALSE,            # Do not cluster rows (TFs)
+  cluster_cols = FALSE,            # Do not cluster columns (since there's only one target, Ccl27a)
+  display_numbers = TRUE,          # Show correlation values in cells
+  color = color_palette,           # Set color scale
+  main = "Correlation Heatmap: Ccl27a vs TFs",
+  fontsize_row = 10,               # Font size for row labels (TF names)
+  fontsize_col = 12                # Font size for column labels (Target name)
+)
+```
+```{r}
+library(ggplot2)
+
+ggsave(plot = corre_ccl, filename = "D:\\CellChat_simran\\human sc RNA SEQ\\correlation.tiff", units = "in", height = 5, width = 7, dpi = 900)
+
+
+ggsave(plot = corre_ccl_a, filename = "D:\\CellChat_simran\\human sc RNA SEQ\\correlation_all.tiff", units = "in", height = 5, width = 7, dpi = 900)
+
+```
+

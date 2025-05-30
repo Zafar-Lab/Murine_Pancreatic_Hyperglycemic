@@ -1,0 +1,58 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+Hs.Endocrine <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN Endocrine0.12res JT.rds")
+Hs.Endocrine <- SetIdent(Hs.Endocrine, value = Hs.Endocrine$subtype.detailed)
+```
+
+```{r}
+
+DimPlot(Hs.Endocrine)
+
+levels(Hs.Endocrine) <- rev(levels(Hs.Endocrine) %>% sort())
+levels(Hs.Endocrine) <- rev(levels(Hs.Endocrine))
+D1 <- DotPlot(Hs.Endocrine, features = rev(c("GCG", "INS", "SST", "PPY")), cols = c("#33AEFF", "#FF5733")) +theme(axis.text.x = element_text(size=11, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=11, color="black"),
+        axis.title = element_text(size=14), legend.box = "left", legend.box.just = "left", legend.position = "right", legend.title = element_text(size = 11), legend.text  = element_text(size=8))+xlab(" ")+ylab(" ")+coord_flip()
+
+ggsave(plot = D1, filename = "Hs.Endocrine hormone expression detailed.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Endocrine/",height = 3, width = 6, device = "tiff", dpi = 600)
+
+VlnPlot(Hs.Endocrine, features = c("GCG", "INS", "SST", "PPY"), stack = T, flip = T)
+
+```
+
+
+```{r}
+
+levels(Hs.Endocrine) <- c("Hs-Alpha", "Hs-Beta", "Hs-Delta and Gamma")
+
+D1 <- DimPlot(Hs.Endocrine)
+ggsave(plot = D1, filename = "Hs.Endocrine Dimplot.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Endocrine/",height = 5, width = 7, device = "tiff", dpi = 600)
+
+D2 <- DimPlot(Hs.Endocrine, split.by = "condition")+NoLegend()
+ggsave(plot = D2, filename = "Hs.Endocrine Dimplot split.by.cond.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Endocrine/",height = 5, width = 15, device = "tiff", dpi = 600)
+
+F1 <- FeaturePlot(Hs.Endocrine, features = "INS")
+ggsave(plot = F1, filename = "Hs.Endocrine Featureplot INS.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Endocrine/",height = 5, width = 5, device = "tiff", dpi = 600)
+
+F2 <- FeaturePlot(Hs.Endocrine, features = "GCG")
+ggsave(plot = F2, filename = "Hs.Endocrine Featureplot GCG.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Endocrine/",height = 5, width = 5, device = "tiff", dpi = 600)
+
+F3 <- FeaturePlot(Hs.Endocrine, features = "SST")
+ggsave(plot = F3, filename = "Hs.Endocrine Featureplot SST.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Endocrine/",height = 5, width = 5, device = "tiff", dpi = 600)
+
+F4 <- FeaturePlot(Hs.Endocrine, features = "PPY")
+ggsave(plot = F4, filename = "Hs.Endocrine Featureplot PPY.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Endocrine/",height = 5, width = 5, device = "tiff", dpi = 600)
+
+
+V1 <- VlnPlot(Hs.Endocrine, features = c("GCG", "INS", "SST", "PPY"), stack = T, flip = T)+theme(axis.text.x = element_text(size=11, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=11, color="black"),
+        axis.title = element_text(size=14))+NoLegend()
+
+ggsave(plot = V1, filename = "Hs.Endocrine vlnplot INS GCG.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Endocrine/",height = 8, width = 5, device = "tiff", dpi = 600)
+```

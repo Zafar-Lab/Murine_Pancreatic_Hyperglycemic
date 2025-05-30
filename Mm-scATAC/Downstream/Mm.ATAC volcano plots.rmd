@@ -1,0 +1,354 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Volcano plots for Da_regions across subclusters  
+```{r}
+Mm.ATAC <- readRDS("F:/Mm.ATAC data Jayesh/Mm-ATAC seurat 121222.rds")
+
+Mm.ATAC<-SetIdent(Mm.ATAC, value = Mm.ATAC$predicted.id.cellstates.detailed)
+DefaultAssay(Mm.ATAC) <- "RNA"
+
+
+#INPUTS
+identity.1 <- "Mm-Alpha 1"
+identity.2 <- "Mm-Alpha 2"
+ y.axis.limit <- c(0,6.1) 
+  x.axis.limit <-  c(-1,0.6)
+
+
+differential.activity <- FindMarkers(
+  object = Mm.ATAC,
+  ident.1 = identity.1,
+  ident.2 = identity.2,
+  only.pos = F, logfc.threshold = 0.1
+)
+
+# volcano_degsfiltered = differential.activity[differential.activity$p_val_adj <= 0.05,]
+    
+ volcano_degsfiltered = differential.activity
+
+    res <- volcano_degsfiltered
+    
+    colnames(res) <- c("P val", "log2FC", "pct.1", "pct.2", "P adj.")
+    
+     keyvals <- ifelse(res$log2FC < -0.25 & res$`P val` <0.05 , 'royalblue',
+      ifelse(res$log2FC > 0.25 & res$`P val`<0.05, 'red',
+           ifelse(res$`P val`<0.05, "grey","black")))
+    
+    #keyvals[is.na(keyvals)] <- 'black'
+    names(keyvals)[keyvals == 'grey'] <- 'Stably expressed'
+    names(keyvals)[keyvals == 'red'] <- 'Upregulated'
+    names(keyvals)[keyvals == 'black'] <- "Not significant"
+    names(keyvals)[keyvals == 'royalblue'] <- 'Downregulated'
+
+
+    plotvolcano1 <- EnhancedVolcano(res,
+                                    lab = rownames(res),
+                                    x = 'log2FC',
+                                    y = 'P val', selectLab = rownames(res)[which(names(keyvals) %in% c('Upregulated','Downregulated'))],
+                                    xlab = bquote(~Log[2]~ 'fold change'),
+                                    title = paste(identity.1,"Vs",identity.2,": DEGs from RNA assay in ATAC data"),
+                                   pCutoff = 0.05,
+                                    FCcutoff = 0.25,
+                                    pointSize = 2.5,
+                                    labSize = 3,
+
+                                    colCustom = keyvals,
+                                    colAlpha = 1,
+                                    legendPosition = 'top',
+                                    legendLabSize = 10,
+                                    legendIconSize = 5.0,
+                                    drawConnectors = TRUE,
+                                    widthConnectors = 1.0,
+                                    colConnectors = 'black',
+                                    arrowheads = F,
+                                    gridlines.major = F,
+                                    gridlines.minor = FALSE,
+                                    border = 'partial',
+                                    borderWidth = 1.5,
+                                    borderColour = 'black', ylim = y.axis.limit, xlim = x.axis.limit, subtitle = " "
+    )
+    
+    plotvolcano1
+    
+    ggsave(plot = plotvolcano1, filename = paste0("G:/Mm.ATAC volcano plots/",identity.1,"Vs", identity.2, "DEGs RNA.tiff"), width = 12, height = 12, dpi = 300)
+```
+
+
+Volcano plots for Differentially enriched motifs across subclusters  
+```{r}
+#Hs.ATAC.chromvar <- readRDS("F:/Mm.ATAC data Jayesh/Mm-ATAC chromVar 121222.rds")
+Hs.ATAC.chromvar<-SetIdent(Hs.ATAC.chromvar, value = Hs.ATAC.chromvar$predicted.id)
+DefaultAssay(Hs.ATAC.chromvar) <- "chromvar"
+
+
+#INPUTS
+identity.1 <- "Hs-Alpha 1"
+identity.2 <- "Hs-Alpha 2"
+ y.axis.limit <- c(0,55) 
+ #x.axis.limit <- c(-1, 2)
+
+
+
+
+differential.activity <- FindMarkers(
+  object = Hs.ATAC.chromvar,
+  ident.1 = identity.1,
+  ident.2 =identity.2,
+  only.pos = F, logfc.threshold = 0
+
+)
+
+
+
+
+differential.activity$motif.names <- 0
+differential.activity$motifs.2 <- 0 
+Motif.names <- as.data.frame(t(as.data.frame(Hs.ATAC.chromvar@assays$ATAC@motifs@motif.names)))
+
+for (x in 1:length(rownames(Motif.names))) {
+  for (y in 1:length(rownames(differential.activity))) {
+    
+    if (rownames(Motif.names)[x] == rownames(differential.activity)[y]) {
+      differential.activity$motif.names[y] <- Motif.names$V1[x]
+      differential.activity$motifs.2[y] <- rownames(Motif.names)[x]
+    }
+  }
+}
+
+differential.activity$name.motif <- paste0(differential.activity$motif.names,"_",differential.activity$motifs.2)
+
+#    volcano_degsfiltered = differential.activity[differential.activity$p_val_adj <= 0.05,]
+    
+ volcano_degsfiltered = differential.activity
+
+    res <- volcano_degsfiltered
+    
+    colnames(res) <- c("P val", "log2FC", "pct.1", "pct.2", "P adj.", "Motif.names", "Motifs.2", "Motif_names_motifs")
+    rownames(res) <- res$Motif_names_motifs
+    
+    
+     keyvals <- ifelse(res$log2FC < -0.25 & res$`P adj.` <0.05 , 'royalblue',
+      ifelse(res$log2FC > 0.25 & res$`P adj.`<0.05, 'red',
+           ifelse(res$`P adj.`<0.05, "grey","black")))
+    
+    #keyvals[is.na(keyvals)] <- 'black'
+    names(keyvals)[keyvals == 'grey'] <- 'Stably expressed'
+    names(keyvals)[keyvals == 'red'] <- 'Upregulated'
+    names(keyvals)[keyvals == 'black'] <- "Not significant"
+    names(keyvals)[keyvals == 'royalblue'] <- 'Downregulated'
+
+    plotvolcano2 <- EnhancedVolcano(res,
+                                    lab = rownames(res),
+                                    x = 'log2FC',
+                                    y = 'P adj.', selectLab = rownames(res)[which(names(keyvals) %in% c('Upregulated','Downregulated'))],
+                                    xlab = bquote(~Log[2]~ 'fold change'),
+                                    title = paste(identity.1,"Vs", identity.2, ": DE motifs (chromvar assay) upregualted in ", identity.1),
+                                    pCutoff = 0.05,
+                                    FCcutoff = 0.25,
+                                    pointSize = 2.5,
+                                    labSize = 3,
+ylim =  y.axis.limit,
+                                    colCustom = keyvals,
+                                    colAlpha = 1,
+                                    legendPosition = 'top',
+                                    legendLabSize = 10,
+                                    legendIconSize = 5.0,
+                                    drawConnectors = TRUE,
+                                    widthConnectors = 1.0,
+                                    colConnectors = 'black',
+                                    arrowheads = F,
+                                    gridlines.major = F,
+                                    gridlines.minor = FALSE,
+                                    border = 'partial',
+                                    borderWidth = 1.5,
+                                    borderColour = 'black', max.overlaps = 7 , subtitle = " ", xlim = c(min(differential.activity$avg_log2FC)-0.3,max(differential.activity$avg_log2FC)+0.3 )
+    )
+    
+    plotvolcano2
+    
+    
+ggsave(plot = plotvolcano2, filename = paste0("H:/LAB 20 IIT K/Human Islets ATACseq JT/Hs.ATAC JT/Plots and sheets/Hs.ATAC Alpha/",identity.1,"Vs", identity.2, "DE motifs.tiff"), device = "tiff", width = 12, height = 12, dpi = 300)
+
+```
+
+#Volcano plots for differentially accessible regions: abhi karna hai sahi
+```{r}
+Mm.ATAC <- readRDS("F:/Mm.ATAC data Jayesh/Mm-ATAC seurat 121222.rds")
+
+Mm.ATAC<-SetIdent(Mm.ATAC, value = Mm.ATAC$predicted.id.cellstates.detailed)
+DefaultAssay(Mm.ATAC) <- "ATAC"
+
+
+#INPUTS
+identity.1 <- "Mm-Alpha 1"
+identity.2 <- "Mm-Alpha 2"
+ y.axis.limit <- c(0,6.1) 
+  x.axis.limit <-  c(-1,0.6)
+
+
+differential.activity <- FindMarkers(
+  object = Mm.ATAC,
+  ident.1 = identity.1,
+  ident.2 = identity.2,
+  only.pos = F, logfc.threshold = 0.1
+)
+
+# volcano_degsfiltered = differential.activity[differential.activity$p_val_adj <= 0.05,]
+    
+ volcano_degsfiltered = differential.activity
+
+    res <- volcano_degsfiltered
+    
+    colnames(res) <- c("P val", "log2FC", "pct.1", "pct.2", "P adj.")
+    
+     keyvals <- ifelse(res$log2FC < -0.25 & res$`P val` <0.05 , 'royalblue',
+      ifelse(res$log2FC > 0.25 & res$`P val`<0.05, 'red',
+           ifelse(res$`P val`<0.05, "grey","black")))
+    
+    #keyvals[is.na(keyvals)] <- 'black'
+    names(keyvals)[keyvals == 'grey'] <- 'Stably expressed'
+    names(keyvals)[keyvals == 'red'] <- 'Upregulated'
+    names(keyvals)[keyvals == 'black'] <- "Not significant"
+    names(keyvals)[keyvals == 'royalblue'] <- 'Downregulated'
+
+
+    plotvolcano1 <- EnhancedVolcano(res,
+                                    lab = rownames(res),
+                                    x = 'log2FC',
+                                    y = 'P val', selectLab = rownames(res)[which(names(keyvals) %in% c('Upregulated','Downregulated'))],
+                                    xlab = bquote(~Log[2]~ 'fold change'),
+                                    title = paste(identity.1,"Vs",identity.2,": DEGs from RNA assay in ATAC data"),
+                                   pCutoff = 0.05,
+                                    FCcutoff = 0.25,
+                                    pointSize = 2.5,
+                                    labSize = 3,
+
+                                    colCustom = keyvals,
+                                    colAlpha = 1,
+                                    legendPosition = 'top',
+                                    legendLabSize = 10,
+                                    legendIconSize = 5.0,
+                                    drawConnectors = TRUE,
+                                    widthConnectors = 1.0,
+                                    colConnectors = 'black',
+                                    arrowheads = F,
+                                    gridlines.major = F,
+                                    gridlines.minor = FALSE,
+                                    border = 'partial',
+                                    borderWidth = 1.5,
+                                    borderColour = 'black', ylim = y.axis.limit, xlim = x.axis.limit, subtitle = " "
+    )
+    
+    plotvolcano1
+    
+    ggsave(plot = plotvolcano1, filename = paste0("G:/Mm.ATAC volcano plots/",identity.1,"Vs", identity.2, "DEGs RNA.tiff"), width = 12, height = 12, dpi = 300)
+```
+
+#Motif enrichment across supopulations Volcano plot
+
+```{r}
+library(SeuratObject)
+library(Signac)
+library(EnhancedVolcano)
+
+
+Mm.ATAC.chromvar <- readRDS("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC working RDS/Mm-ATAC chromVar 121222.rds")
+Mm.ATAC.chormvar <-SetIdent(Mm.ATAC.chromvar, value =Mm.ATAC.chromvar$predicted.id.cellstates.detailed)
+DefaultAssay(Mm.ATAC.chormvar) <- "chromvar"
+
+
+#INPUTS
+identity.1 <- "Mm-Delta 1"
+identity.2 <- "Mm-Delta 2"
+ y.axis.limit <- c(0,5) 
+ #x.axis.limit <- c(-1, 2)
+
+
+
+
+differential.activity <- FindMarkers(
+  object = Mm.ATAC.chormvar,
+  ident.1 = identity.1,
+  ident.2 =identity.2,
+  only.pos = F, logfc.threshold = 0
+
+)
+
+
+
+
+differential.activity$motif.names <- NA
+differential.activity$motifs.2 <- NA 
+Motif.names <- as.data.frame(t(as.data.frame(Mm.ATAC.chormvar@assays$ATAC@motifs@motif.names)))
+
+for (x in 1:length(rownames(Motif.names))) {
+  for (y in 1:length(rownames(differential.activity))) {
+    
+    if (rownames(Motif.names)[x] == rownames(differential.activity)[y]) {
+      differential.activity$motif.names[y] <- Motif.names$V1[x]
+      differential.activity$motifs.2[y] <- rownames(Motif.names)[x]
+    }
+  }
+}
+
+differential.activity$name.motif <- paste0(differential.activity$motif.names,"_",differential.activity$motifs.2)
+
+#    volcano_degsfiltered = differential.activity[differential.activity$p_val_adj <= 0.05,]
+    
+ volcano_degsfiltered <- differential.activity
+ volcano_degsfiltered <- na.omit(volcano_degsfiltered)
+rownames(volcano_degsfiltered) <- volcano_degsfiltered$name.motif
+    res <- volcano_degsfiltered
+    
+    colnames(res) <- c("P val", "log2FC", "pct.1", "pct.2", "P adj.", "Motif.names", "Motifs.2", "Motif_names_motifs")
+    rownames(res) <- res$Motif_names_motifs
+    
+    
+     keyvals <- ifelse(res$log2FC < -0.25 & res$`P adj.` <0.05 , 'royalblue',
+      ifelse(res$log2FC > 0.25 & res$`P adj.`<0.05, 'red',
+           ifelse(res$`P adj.`<0.05, "grey","black")))
+    
+    #keyvals[is.na(keyvals)] <- 'black'
+    names(keyvals)[keyvals == 'grey'] <- 'Stably expressed'
+    names(keyvals)[keyvals == 'red'] <- 'Upregulated'
+    names(keyvals)[keyvals == 'black'] <- "Not significant"
+    names(keyvals)[keyvals == 'royalblue'] <- 'Downregulated'
+
+    plotvolcano2 <- EnhancedVolcano(res,
+                                    lab = rownames(res),
+                                    x = 'log2FC',
+                                    y = 'P adj.', selectLab = rownames(res)[which(names(keyvals) %in% c('Upregulated','Downregulated'))],
+                                    xlab = bquote(~Log[2]~ 'fold change'),
+                                    title = paste(identity.1,"Vs", identity.2, ": DE motifs (chromvar assay)"),
+                                    pCutoff = 0.05,
+                                    FCcutoff = 0.25,
+                                    pointSize = 2.5,
+                                    labSize = 3,
+ylim =  y.axis.limit,
+                                    colCustom = keyvals,
+                                    colAlpha = 1,
+                                    legendPosition = 'top',
+                                    legendLabSize = 10,
+                                    legendIconSize = 5.0,
+                                    drawConnectors = TRUE,
+                                    widthConnectors = 1.0,
+                                    colConnectors = 'black',
+                                    arrowheads = F,
+                                    gridlines.major = F,
+                                    gridlines.minor = FALSE,
+                                    border = 'partial',
+                                    borderWidth = 1.5,
+                                    borderColour = 'black', max.overlaps = 12 , subtitle = " ", xlim = c(min(differential.activity$avg_log2FC)-0.3,max(differential.activity$avg_log2FC)+0.3 )
+    )
+    
+    plotvolcano2
+    
+    
+ggsave(plot = plotvolcano2, filename = paste0("D:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Mm.ATAC Beta analysis/",identity.1," Vs ", identity.2, "DE motifs.tiff"), device = "tiff", width = 10, height = 10, dpi = 300)
+
+```
+
+

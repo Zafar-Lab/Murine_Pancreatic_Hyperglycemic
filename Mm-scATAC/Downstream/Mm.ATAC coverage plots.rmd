@@ -1,0 +1,359 @@
+---
+title: "Mm.ATAC Peak plots"
+output: html_notebook
+---
+
+
+Mm-ATAC Peak plots for markers
+Combining peak plots for the markers 
+```{r}
+Mm.ATAC <- readRDS("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC working RDS/Mm-ATAC seurat 121222.rds")
+Mm.ATAC <- readRDS("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC working RDS/Mm-ATAC seurat 121222.rds")
+
+DefaultAssay(Mm.ATAC) <- "ATAC"
+Mm.ATAC<- SetIdent(Mm.ATAC, value = Mm.ATAC$cor.states1)
+
+DimPlot(Mm.ATAC)
+
+
+Da_peaks <- FindAllMarkers(Mm.ATAC, logfc.threshold = 0.5)
+colnames(Da_peaks)[7] <- "query_region"
+
+closest_genes_all <- ClosestFeature(Mm.ATAC, regions = Da_peaks$query_region)
+Da_peaks = merge(Da_peaks, closest_genes_all, by = "query_region", all = T)
+
+Da_peaks<- unique(Da_peaks)
+View(Da_peaks)
+
+marker_genes <- c("Gcg", "Ins1", "Ins2", "Sst", "Ppy", "Pyy", "Cd74", "Plvap", "Rgs5", "Mgp")
+
+Da_peaks1 <- Da_peaks[Da_peaks$gene_name %in% marker_genes & Da_peaks$avg_log2FC > 0, ]
+Da_peaks2 <- Da_peaks1[Da_peaks1$distance == 0,]
+
+View(Da_peaks2)
+
+
+
+```
+
+```{r}
+
+pdf(file = paste0("G:/Mm.ATAC peak plots/Mm.ATAC.Alpha 1 updated12367891011111.pdf"), width = 5, height = 8)
+
+levels(Mm.ATAC) <- c("Mm-Alpha","Mm-Beta","Mm-Delta","Mm-Gamma","Mm-Endothelial","Mm-Immune","Mm-PSCs","Mm-Acinar")
+levels(Mm.ATAC)
+  
+DefaultAssay(Mm.ATAC) <- "ATAC"
+
+Peak_plot <- list()
+  for (i in 1:length(Da_peaks2$query_region)) {
+
+ranges.show <- StringToGRanges(Da_peaks2$query_region[i])
+ranges.show$color <- "yellow" 
+    
+    Peak_plot[[i]] <- CoveragePlot(object = Mm.ATAC,
+  region = Da_peaks2$query_region[i],
+  extend.upstream = 100,
+  extend.downstream = 100, peaks = T,
+  links = F, heights = 10, 
+  ymax = 55,
+  region.highlight = ranges.show
+  )+patchwork::plot_annotation(title = Da_peaks2$gene_name[i], subtitle = paste0(Da_peaks2$query_region[i]," ",Da_peaks2$type[i]))
+#     directory <- paste0("G:/Mm.ATAC peak plots/",cluster.info,"/",pathway.name,"/")
+#     dir.create(directory)
+ggsave(plot = Peak_plot[[i]], filename = paste0("G:/Mm.ATAC peak plots/Peak plot markers/",Da_peaks2$gene_name[i],".jpeg"), device = "jpeg", width = 3, height = 6, dpi = 300)
+
+ggsave(plot = Peak_plot[[i]], filename = paste0("G:/Mm.ATAC peak plots/Peak plot markers/",Da_peaks2$gene_name[i],".tiff"), device = "jpeg", width = 3, height = 6, dpi = 300)
+print(Peak_plot[[i]])
+
+  }
+
+dev.off()
+
+
+
+wrap_plots(Peak_plot[[6]],
+           Peak_plot[[5]],
+            Peak_plot[[3]], Peak_plot[[8]], Peak_plot[[2]], Peak_plot[[4]], Peak_plot[[1]])
+
+```
+
+```{r}
+
+D1 <- DimPlot(Mm.ATAC, reduction = "umap")
+D2 <- DimPlot(Mm.ATAC, reduction = "umap", label = T, repel = T)
+ggsave(plot = D1, filename = "Mm.ATAC dimplot.tiff", device = "tiff", height = 6, width = 7, path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/", dpi = 600)
+ggsave(plot = D2, filename = "Mm.ATAC dimplot labeled.tiff", device = "tiff", height = 6, width = 7, path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/", dpi = 600)
+
+
+```
+
+
+
+
+
+```{r}
+Mm.ATAC.chromvar <- readRDS("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC working RDS/Mm-ATAC chromVar 121222.rds")
+
+DefaultAssay(Mm.ATAC.chromvar) <- "chromvar"
+Mm.ATAC.chromvar <- SetIdent(Mm.ATAC.chromvar, value = Mm.ATAC.chromvar$cor.states1)
+
+levels(Mm.ATAC.chromvar) <- rev(c("Mm-Alpha","Mm-Beta","Mm-Delta","Mm-Gamma","Mm-Endothelial","Mm-Immune","Mm-PSCs","Mm-Acinar"))
+
+
+motifs_selected <- c("MA0600.2", "MA0799.1", "MA0798.2", "MA0510.2", "MA1554.1", "MA0509.2", "MA1496.1", "MA1500.1", "MA0043.3", "MA0903.1", "MA0707.1", "MA1487.1", "MA0598.3", "MA0514.1", "MA0473.3", "MA0761.2", "MA0764.2", "MA1418.1", "MA0605.2", "MA0060.3", "MA1644.1", "MA0105.4", "MA0599.1", "MA1513.1", "MA1512.1")
+
+DotPlot(Mm.ATAC.chromvar, features = motifs_selected)
+```
+```{r}
+
+differential.activity <- FindAllMarkers(Mm.ATAC.chromvar, logfc.threshold = 1)
+
+Jaspar.meta <- readxl::read_excel("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC data Jayesh/Sheets/JASPAR metadata.xlsx")
+Jaspar.meta$...7 <- NULL
+Jaspar.meta$Logo <- NULL
+Jaspar.meta <- na.omit(Jaspar.meta)
+
+
+differential.activity <- differential.activity[which(differential.activity$p_val_adj < 0.05),]
+
+differential.activity$Name <- NA
+differential.activity$ID <- NA
+differential.activity$Species <-NA
+differential.activity$Class <- NA
+differential.activity$Family <- NA
+
+for (x in 1:length(Jaspar.meta$ID)) {
+  for (y in 1:length(rownames(differential.activity))) {
+    
+    if (Jaspar.meta$ID[x] == differential.activity$gene[y]) {
+      
+      differential.activity$ID[y] <- Jaspar.meta$ID[x]
+      differential.activity$Name[y] <- Jaspar.meta$Name[x]
+      differential.activity$Species[y] <- Jaspar.meta$Species[x]
+      differential.activity$Family[y] <- Jaspar.meta$Family[x]
+      differential.activity$Class[y] <- Jaspar.meta$Class[x]
+    }
+  }
+}
+
+#cells.use <- rownames(Mm.ATAC.integrated4@meta.data)[which(Mm.ATAC.integrated4@meta.data$cor.states1 == "Mm-Endothelial")]
+
+
+differential.activity$Motif.family <- paste0(differential.activity$gene," ", differential.activity$Family)
+differential.activity$Motif.name <- paste0(differential.activity$gene," ", differential.activity$Name)
+
+motifs.to.plot <- motifs_selected
+motif.labels <- c()
+motif.names <- c()
+
+for (i in 1:length(motifs.to.plot)) {
+  for (j in 1:length(differential.activity$gene)) {
+if (motifs.to.plot[i]==differential.activity$gene[j]) 
+  {motif.labels[i] <- differential.activity$Motif.family[j]
+motif.names[i] <- differential.activity$Motif.name[j]
+  }    
+  }    
+}
+
+
+print(motif.names)
+
+
+
+
+d1 <- Dot.Plot <- DotPlot(Mm.ATAC.chromvar, assay = "chromvar", features = motifs.to.plot, #cols = c("#33AEFF", "#FF5733")
+                    #,idents = idents.to.use
+                   cols = c("light grey", "#33AEFF")
+                    , scale.min = 0, scale.max = 100, dot.scale = 10
+                    ) +theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=8, color="black"),
+        axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6)) +   scale_x_discrete(labels= motif.names)
+
+
+
+ggsave(plot = d1, filename = "Mm.ATAC DE motifs.tiff", device = "tiff", height = 5, width = 9, path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/", dpi = 600)
+```
+
+
+
+
+
+
+#####################################################################################################################
+
+
+Saving Dim plots for MM.ATAC
+
+```{r}
+Mm.ATAC <- readRDS("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC working RDS/Mm-ATAC seurat 121222.rds")
+```
+
+```{r}
+Mm.ATAC <- SetIdent(Mm.ATAC, value = Mm.ATAC$cor.states1)
+levels(Mm.ATAC) <- c("Mm-Alpha", "Mm-Beta", "Mm-Delta", "Mm-Gamma", "Mm-Endothelial", "Mm-Immune", "Mm-PSCs", "Mm-Acinar")
+
+Mm.ATAC$diet <- factor(x = Mm.ATAC$diet, levels = c("RC", "HFD"))
+
+d1 <- DimPlot(Mm.ATAC)
+d4 <- DimPlot(Mm.ATAC, label = T, repel = T)
+d2 <- DimPlot(Mm.ATAC, split.by = "diet")
+d3 <- DimPlot(Mm.ATAC, split.by = "diet", label = T)
+
+ggsave(plot = d1, filename = "Mm.ATAC Dimplot unlabled.tiff", path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Embeddings/",dpi = 600, device = "tiff", height = 7, width = 8)
+
+ggsave(plot = d4, filename = "Mm.ATAC Dimplot labled.tiff", path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Embeddings/",dpi = 600, device = "tiff", height = 7, width = 8)
+
+ggsave(plot = d2, filename = "Mm.ATAC Dimplot unlabled split diet.tiff", path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Embeddings/",dpi = 600, device = "tiff", height = 7, width = 16)
+
+ggsave(plot = d3, filename = "Mm.ATAC Dimplot split diet labeled.tiff", path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Embeddings/",dpi = 600, device = "tiff", height = 7, width = 16)
+```
+
+
+```{r}
+Mm.ATAC <- SetIdent(Mm.ATAC, value = Mm.ATAC$predicted.cellstates.scran_norm)
+Mm.ATAC$diet <- factor(x = Mm.ATAC$diet, levels = c("RC", "HFD"))
+levels(Mm.ATAC) <- c("Mm-Alpha 1", "Mm-Alpha 2", "Mm-Beta 1", "Mm-Beta 2", "Mm-Beta 3", "Mm-Delta 1", "Mm-Delta 2","Mm-Delta 3", "Mm-Gamma 1", "Mm-Gamma 2",  "Mm-Vascular endothelial", "Mm-Lipid handling endothelial",  "Mm-Pericytes", "Mm-Progenitors" , "Mm-B cells",  "Mm-M1 macrophages" ,"Mm-M2 macrophages",  "Mm-Resident-like macrophages" , "Mm-PSCs", "Mm-Acinar")
+
+
+
+
+d1 <- DimPlot(Mm.ATAC)
+d4 <- DimPlot(Mm.ATAC, label = T, repel = T)
+d2 <- DimPlot(Mm.ATAC, split.by = "diet")
+d3 <- DimPlot(Mm.ATAC, split.by = "diet", label = T, repel = T)
+d3 <- DimPlot(Mm.ATAC, split.by = "diet", label = T, repel = T)
+
+ggsave(plot = d1, filename = "Mm.ATAC Dimplot detailed unlabled.tiff", path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Embeddings/",dpi = 600, device = "tiff", height = 7, width = 9)
+
+ggsave(plot = d2, filename = "Mm.ATAC Dimplot detailed unlabled split diet.tiff", path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Embeddings/",dpi = 600, device = "tiff", height = 7, width = 16)
+
+ggsave(plot = d3, filename = "Mm.ATAC Dimplot detailed split diet labeled.tiff", path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Embeddings/",dpi = 600, device = "tiff", height = 7, width = 16)
+
+ggsave(plot = d4, filename = "Mm.ATAC Dimplot detailed labled.tiff", path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Embeddings/",dpi = 600, device = "tiff", height = 7, width = 9)
+```
+
+
+
+```{r}
+
+# Mm.ATAC$week <- str_split_i(Mm.ATAC$diet.week, pattern = "_",i = 2 )
+# Mm.ATAC$week <- factor(x = Mm.ATAC$week, levels = c("8W", "14W", "24W", "30W"))
+
+Mm.ATAC <- SetIdent(Mm.ATAC, value = Mm.ATAC$cor.states1)
+levels(Mm.ATAC) <- c("Mm-Alpha", "Mm-Beta", "Mm-Delta", "Mm-Gamma", "Mm-Endothelial", "Mm-Immune", "Mm-PSCs", "Mm-Acinar")
+
+Mm.ATAC$diet <- factor(x = Mm.ATAC$diet, levels = c("RC", "HFD"))
+
+
+d2 <- DimPlot(Mm.ATAC, split.by = "week")
+d3 <- DimPlot(Mm.ATAC, split.by = "week", label = T, repel = T)
+
+
+
+ggsave(plot = d2, filename = "Mm.ATAC Dimplot split week unlabled.tiff", path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Embeddings/",dpi = 600, device = "tiff", height = 6, width = 25)
+
+ggsave(plot = d3, filename = "Mm.ATAC Dimplot split week labeled.tiff", path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Embeddings/",dpi = 600, device = "tiff", height = 6, width = 25)
+```
+
+
+```{r}
+Mm.ATAC <- SetIdent(Mm.ATAC, value = Mm.ATAC$predicted.cellstates.scran_norm)
+Mm.ATAC$diet <- factor(x = Mm.ATAC$diet, levels = c("RC", "HFD"))
+levels(Mm.ATAC) <- c("Mm-Alpha 1", "Mm-Alpha 2", "Mm-Beta 1", "Mm-Beta 2", "Mm-Beta 3", "Mm-Delta 1", "Mm-Delta 2","Mm-Delta 3", "Mm-Gamma 1", "Mm-Gamma 2",  "Mm-Vascular endothelial", "Mm-Lipid handling endothelial",  "Mm-Pericytes", "Mm-Progenitors" , "Mm-B cells",  "Mm-M1 macrophages" ,"Mm-M2 macrophages",  "Mm-Resident-like macrophages" , "Mm-PSCs", "Mm-Acinar")
+
+
+
+
+d2 <- DimPlot(Mm.ATAC, split.by = "week")
+d3 <- DimPlot(Mm.ATAC, split.by = "week", label = T, repel = T)
+
+
+ggsave(plot = d2, filename = "Mm.ATAC Dimplot detailed split week unlabled.tiff", path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Embeddings/",dpi = 600, device = "tiff", height = 6, width = 19)
+
+ggsave(plot = d3, filename = "Mm.ATAC Dimplot detailed split week labeled.tiff", path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Embeddings/",dpi = 600, device = "tiff", height = 6, width = 19)
+
+```
+
+
+
+
+```{r}
+
+# Mm.ATAC$week <- str_split_i(Mm.ATAC$diet.week, pattern = "_",i = 2 )
+# Mm.ATAC$week <- factor(x = Mm.ATAC$week, levels = c("8W", "14W", "24W", "30W"))
+
+Mm.ATAC <- SetIdent(Mm.ATAC, value = Mm.ATAC$cor.states1)
+levels(Mm.ATAC) <- c("Mm-Alpha", "Mm-Beta", "Mm-Delta", "Mm-Gamma", "Mm-Endothelial", "Mm-Immune", "Mm-PSCs", "Mm-Acinar")
+
+Mm.ATAC$diet.week <- factor(x = Mm.ATAC$diet.week, levels = c("RC_8W", "RC_14W", "RC_30W","HFD_8W", "HFD_24W"))
+
+
+d2 <- DimPlot(Mm.ATAC, split.by = "diet.week")
+d3 <- DimPlot(Mm.ATAC, split.by = "diet.week", label = T, repel = T)
+
+
+
+ggsave(plot = d2, filename = "Mm.ATAC Dimplot split dietweek unlabled.tiff", path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Embeddings/",dpi = 600, device = "tiff", height = 6, width = 33)
+
+ggsave(plot = d3, filename = "Mm.ATAC Dimplot split dietweek labeled.tiff", path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Embeddings/",dpi = 600, device = "tiff", height = 6, width = 33)
+```
+
+
+```{r}
+Mm.ATAC <- SetIdent(Mm.ATAC, value = Mm.ATAC$predicted.cellstates.scran_norm)
+Mm.ATAC$diet <- factor(x = Mm.ATAC$diet, levels = c("RC", "HFD"))
+levels(Mm.ATAC) <- c("Mm-Alpha 1", "Mm-Alpha 2", "Mm-Beta 1", "Mm-Beta 2", "Mm-Beta 3", "Mm-Delta 1", "Mm-Delta 2","Mm-Delta 3", "Mm-Gamma 1", "Mm-Gamma 2",  "Mm-Vascular endothelial", "Mm-Lipid handling endothelial",  "Mm-Pericytes", "Mm-Progenitors" , "Mm-B cells",  "Mm-M1 macrophages" ,"Mm-M2 macrophages",  "Mm-Resident-like macrophages" , "Mm-PSCs", "Mm-Acinar")
+
+
+
+
+d2 <- DimPlot(Mm.ATAC, split.by = "diet.week")
+d3 <- DimPlot(Mm.ATAC, split.by = "diet.week", label = T, repel = T)
+
+
+ggsave(plot = d2, filename = "Mm.ATAC Dimplot detailed split dietweek unlabled.tiff", path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Embeddings/",dpi = 600, device = "tiff", height = 6, width = 34)
+
+ggsave(plot = d3, filename = "Mm.ATAC Dimplot detailed split dietweek labeled.tiff", path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Embeddings/",dpi = 600, device = "tiff", height = 6, width = 34)
+
+```
+
+
+
+```{r}
+Mm.ATAC <- SetIdent(Mm.ATAC, value = Mm.ATAC$cor.states1)
+levels(Mm.ATAC) <- c("Mm-Alpha", "Mm-Beta", "Mm-Delta", "Mm-Gamma", "Mm-Endothelial", "Mm-Immune", "Mm-PSCs", "Mm-Acinar")
+
+
+d2 <- DimPlot(Mm.ATAC, label = F)+NoLegend()
+
+
+ggsave(plot = d2, filename = "Mm.ATAC Dimplot nolegend.tiff", path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Embeddings/",dpi = 600, device = "tiff", height = 8, width = 8)
+
+
+
+Mm.ATAC <- SetIdent(Mm.ATAC, value = Mm.ATAC$predicted.cellstates.scran_norm)
+levels(Mm.ATAC) <- c("Mm-Alpha 1", "Mm-Alpha 2", "Mm-Beta 1", "Mm-Beta 2", "Mm-Beta 3", "Mm-Delta 1", "Mm-Delta 2","Mm-Delta 3", "Mm-Gamma 1", "Mm-Gamma 2",  "Mm-Vascular endothelial", "Mm-Lipid handling endothelial",  "Mm-Pericytes", "Mm-Progenitors" , "Mm-B cells",  "Mm-M1 macrophages" ,"Mm-M2 macrophages",  "Mm-Resident-like macrophages" , "Mm-PSCs", "Mm-Acinar")
+
+
+
+
+d1 <- DimPlot(Mm.ATAC, label = F)+NoLegend()
+
+
+ggsave(plot = d1, filename = "Mm.ATAC Dimplot detailed nolegend.tiff", path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Embeddings/",dpi = 600, device = "tiff", height = 8, width = 8)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+

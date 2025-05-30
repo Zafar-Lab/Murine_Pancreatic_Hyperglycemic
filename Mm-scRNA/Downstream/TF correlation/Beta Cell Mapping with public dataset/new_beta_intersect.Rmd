@@ -1,0 +1,366 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+#MIA paper - subset the beta population from MIA atlas
+#beta_db/db_beta clustering - using feature names instead of ensembl gene ids
+
+# Extract raw count matrix and metadata
+counts_matrix <- GetAssayData(subset_beta, slot = "counts", assay = "RNA")
+meta_data <- subset_beta@meta.data
+
+# Extract ENSEMBL IDs (current rownames) and corresponding gene symbols
+ensembl_ids <- rownames(counts_matrix)
+gene_symbols <- subset_beta@assays[["RNA"]]@meta.features[["feature_name"]]
+
+# Ensure gene_symbols and ensembl_ids have the same length
+if (length(gene_symbols) != length(ensembl_ids)) {
+    stop("Mismatch between feature names and count matrix rows!")
+}
+
+# Rename rownames in the count matrix
+rownames(counts_matrix) <- gene_symbols
+
+# Create a new Seurat object with renamed genes
+new_db_stz_beta <- CreateSeuratObject(counts = counts_matrix, meta.data = meta_data)
+
+# Verify the update
+head(rownames(new_db_stz_beta))
+new_db_stz_beta #from MIA paper
+
+
+#feng dataset
+feng_beta_stz <- readRDS("D:\\CellChat_simran\\Islet_integration\\raw_rds_all\\feng_seurat_beta_subset_stz.rds")
+feng_beta_stz
+
+
+#extracted the counts matrix from each seurat
+counts_beta_diabetes <- GetAssayData(new_db_stz_beta, assay = "RNA", slot = "counts") #beta cells from MIA atlas
+counts_feng_stz <- GetAssayData(feng_beta_stz, assay = "RNA", slot = "counts") #beta cells from feng paper
+counts_own_beta <- GetAssayData(own_beta_pop, assay = "RNA", slot = "counts") #beta cells from own dataset
+
+raw_beta_diabetes <- CreateSeuratObject(counts = counts_beta_diabetes, meta.data = new_db_stz_beta@meta.data)
+raw_beta_diabetes
+
+raw_feng_stz <- CreateSeuratObject(counts = counts_feng_stz, meta.data = feng_beta_stz@meta.data)
+raw_feng_stz
+
+raw_own_beta <- CreateSeuratObject(counts = counts_own_beta, meta.data = own_beta_pop@meta.data)
+raw_own_beta
+
+raw_merged_islet <- merge(raw_beta_diabetes, y=c(raw_feng_stz, raw_own_beta))
+raw_merged_islet
+```
+
+
+```{r}
+#Intersection of genes
+# Load Seurat
+library(Seurat)
+
+# Example: Assuming you have three Seurat objects: obj1, obj2, obj3
+
+# Find the intersection of genes
+common_genes <- Reduce(intersect, list(rownames(raw_beta_diabetes), rownames(raw_feng_stz), rownames(raw_own_beta)))
+
+common_genes <- as.data.frame(common_genes)
+
+# Subset each Seurat object to keep only the common genes
+obj1_sub <- subset(raw_beta_diabetes, features = common_genes)
+obj2_sub <- subset(raw_feng_stz, features = common_genes)
+obj3_sub <- subset(raw_own_beta, features = common_genes)
+
+# Merge the Seurat objects
+merged_obj <- merge(obj1_sub, y = list(obj2_sub, obj3_sub))
+
+# Check the dimensions of the merged object
+dim(merged_obj)
+```
+
+
+```{r}
+#converting rds to h5ad format for scDREAMER run
+counts_matrix <- GetAssayData(merged_obj, assay = 'RNA', slot = 'counts')
+
+writeMM(counts_matrix, file = paste0(file="D:\\CellChat_simran\\Islet_integration\\raw_rds_all\\new_beta_intersection.mtx"))
+
+
+#write gene names
+write.table(data.frame('gene'=rownames(counts_matrix)),
+            file = "D:\\CellChat_simran\\Islet_integration\\raw_rds_all\\new_beta_intersection_genes.csv",
+            quote = F, row.names = F, col.names = F)
+
+merged_obj$barcode <- colnames(merged_obj)
+
+#write.csv(raw_merged_islet_joined@meta.data, file = "D:\\CellChat_simran\\Islet_integration\\raw_merged_metadata_abcd.csv",
+#          quote = F,row.names = F)
+
+write.table(merged_obj@meta.data, 
+            file = "D:\\CellChat_simran\\Islet_integration\\raw_rds_all\\new_beta_intersection_metadata.tsv", 
+            quote = FALSE, 
+            row.names = FALSE, 
+            sep = "\t")
+```
+
+```{r}
+#MIA, feng, own dataset - using intersection of genes
+
+merged_obj <- readRDS("D:\\CellChat_simran\\Islet_integration\\raw_rds_all\\new_beta_intersection_seurat.rds")
+merged_obj
+
+embeddings <- read.csv("D:\\CellChat_simran\\Islet_integration\\raw_rds_all\\Islet_beta_intersectionlatent_matrix_250.csv", header = FALSE)
+
+embeddings_matrix <- as.matrix(embeddings)
+
+rownames(embeddings_matrix) = colnames(merged_obj)
+
+merged_obj[["embeds"]] <- CreateDimReducObject(embeddings = embeddings_matrix, key = "embeds_", assay = "RNA") #to store embeddings in reductions
+
+merged_obj <- RunUMAP(merged_obj, dims = 1:10, reduction = "embeds")
+
+merged_obj
+```
+```{r}
+DimPlot(merged_obj, group.by = "CONDITION", raster = F)
+```
+```{r}
+merged_obj <- NormalizeData(merged_obj)
+merged_obj <- FindVariableFeatures(merged_obj)
+#meta.features <- GLUT_HDG@assays$RNA@meta.features
+#highly_deviant_genes <- rownames(meta.features[meta.features$highly_deviant == TRUE, ])
+#VariableFeatures(GLUT_HDG) <- highly_deviant_genes
+vf <- VariableFeatures(merged_obj)
+vf <- as.data.frame(vf)
+merged_obj <- ScaleData(merged_obj)
+merged_obj <- RunPCA(merged_obj)
+merged_obj <- RunUMAP(merged_obj, reduction = "embeds", dims = 1:10)  # Assuming 'custom_embedding' is your embedding
+DimPlot(merged_obj, group.by = "CONDITION")
+```
+```{r}
+unique(merged_obj$design)
+```
+```{r}
+merged_obj$OWN_BETA_SUBPOP <- beta_whole$beta_sub_subpopulations
+unique(merged_obj$OWN_BETA_SUBPOP)
+
+merged_obj$OWN_CELL_TYPE <- "0"
+merged_obj$OWN_CELL_TYPE <- coalesce(merged_obj$cell_type_reannotatedIntegrated, merged_obj$OWN_BETA_SUBPOP)
+
+merged_obj$OWN_CELL_TYPE[merged_obj$OWN_CELL_TYPE == "0"] <- "beta_feng_STZ"
+
+merged_obj$OWN_CELL_TYPE[merged_obj$OWN_CELL_TYPE == "beta" & merged_obj$CONDITION == "db/db"] <- "beta_db"
+merged_obj$OWN_CELL_TYPE[merged_obj$OWN_CELL_TYPE == "beta" & merged_obj$CONDITION == "mSTZ"]  <- "beta_mSTZ"
+
+unique(merged_obj$OWN_CELL_TYPE)
+
+```
+```{r}
+unique(merged_obj$design)
+```
+
+```{r}
+merged_obj$new_design <- ifelse(
+  merged_obj$design == "control", "control_mSTZ",
+  ifelse(merged_obj$design == "chow_WT", "control_db",
+         ifelse(merged_obj$design %in% c("sham_Lepr-/-", "PF_Lepr-/-", "VSG_Lepr-/-"), "db/db",
+                ifelse(grepl("STZ", merged_obj$design), "mSTZ", NA)
+         )
+  )
+)
+
+
+unique(merged_obj$new_design)
+```
+```{r}
+merged_obj$OWN_BATCH_CELL <- "0"
+merged_obj$OWN_BATCH_CELL <- coalesce(merged_obj$new_design, merged_obj$OWN_CELL_TYPE)
+
+unique(merged_obj$OWN_BATCH_CELL)
+```
+```{r}
+merged_obj <- FindNeighbors(merged_obj, reduction  = "embeds", dims = 1:10)
+merged_obj <- FindClusters(merged_obj, resolution = 0.5)
+DimPlot(merged_obj, group.by = "seurat_clusters", label = T, raster = F)
+```
+```{r}
+df_intersection_0.5 <- as.data.frame.matrix(table(merged_obj$seurat_clusters, merged_obj$OWN_BATCH_CELL))
+#min_max_norm <- function(x) { return(x/sum(x))}
+#df_normalized_0.5 <- as.data.frame(lapply(df_0.5, min_max_norm))
+plot_intersection_0.5 <- heatmap((as.matrix(df_intersection_0.5)), scale = "column", Colv = NA, margins = c(8,8))
+```
+
+```{r}
+heatmap.2(as.matrix(df_intersection_0.5), 
+          scale = "column", 
+          Colv = NA, 
+          margins = c(9,9), 
+          trace = "none", 
+          key = TRUE,  # Enables color legend
+          keysize = 1.2,  # Adjust the size of the color legend
+          col = colorRampPalette(c("blue", "white", "red"))(100))  # Custom color gradient
+```
+
+```{r}
+table(merged_obj$seurat_clusters, merged_obj$OWN_BATCH_CELL)
+```
+```{r}
+table(merged_obj$seurat_clusters)
+```
+
+```{r}
+# Create the contingency table
+ct_table <- table(merged_obj$seurat_clusters, merged_obj$OWN_BATCH_CELL)
+
+# Calculate row-wise proportions (fraction of each cell type in each cluster)
+frac_table <- prop.table(ct_table, margin = 1)
+
+frac_table <- as.data.frame(frac_table)
+
+
+# Print the fractional table
+print(frac_table)
+
+heatmap.2(as.matrix(frac_table), 
+          scale = "column", 
+          Colv = NA, 
+          margins = c(9,9), 
+          trace = "none", 
+          key = TRUE,  # Enables color legend
+          keysize = 1.2,  # Adjust the size of the color legend
+          col = colorRampPalette(c("blue", "white", "red"))(100))  # Custom color gradient
+
+```
+
+
+```{r}
+# Create the contingency table and calculate proportions
+ct_table <- table(merged_obj$seurat_clusters, merged_obj$OWN_BATCH_CELL)
+frac_table <- prop.table(ct_table, margin = 1)
+
+# Convert the table to a numeric matrix
+frac_matrix <- matrix(as.numeric(frac_table), 
+                      nrow = nrow(frac_table), 
+                      ncol = ncol(frac_table))
+rownames(frac_matrix) <- rownames(frac_table)
+colnames(frac_matrix) <- colnames(frac_table)
+
+# Check that the matrix is numeric
+str(frac_matrix)
+
+# Now generate the heatmap
+library(gplots)
+heatmap.2(frac_matrix, 
+          scale = "column", 
+          Colv = NA, 
+          margins = c(9,9), 
+          trace = "none", 
+          key = TRUE,  # Enables color legend
+          keysize = 1.2,  # Adjust the size of the color legend
+          col = colorRampPalette(c("blue", "white", "red"))(100))
+
+```
+```{r}
+library(gplots)
+library(RColorBrewer)
+
+heatmap.2(
+  frac_matrix,
+  Colv = NA,
+  margins = c(9,9),
+  trace = "none",
+  key = TRUE,
+  keysize = 1.2,
+  # Use a Brewer diverging palette
+  col = colorRampPalette(brewer.pal(9, "RdBu"))(100)
+)
+
+```
+
+
+```{r}
+saveRDS(merged_obj, "D:\\CellChat_simran\\Islet_integration\\raw_rds_all\\new_beta_intersection_seurat_scdreamer_embeds.rds")
+```
+
+
+```{r}
+#For sankey plots
+
+ata_long <- as.data.frame.table(table(merged_obj$seurat_clusters, merged_obj$OWN_BATCH_CELL))
+colnames(data_long) <- c("clustering_1", "clustering_2", "n")
+
+beta_selcted_sankey_another <- plot_sankey_comparison(
+  input_clusters = data_long,
+  #clustering_1_filter = c("0","1","2","3","4","5","6","7","8","9","10"),
+  clustering_2_filter = c("db/db", "mSTZ", "Mm-Beta 2-2", "Mm-Beta 2-1"),  # Filter right-side categories
+  value_col = "n",
+  text_size = 15,
+  col1 = "#cc2118",   # Red color
+  col2 = "#1F78B4",   # Hex code for Royal Blue
+  light_factor = 0.1
+)
+
+htmlwidgets::saveWidget(beta_selcted_sankey_another, 
+                         "D:\\CellChat_simran\\Islet_integration\\Final_figures\\sankey_plot_beta_selcted_another_font.html", 
+                         selfcontained = TRUE)
+
+webshot::webshot("D:\\CellChat_simran\\Islet_integration\\Final_figures\\sankey_plot_beta_selcted_another_font.html", 
+                  file = "D:\\CellChat_simran\\Islet_integration\\Final_figures\\sankey_plot_beta_selected_another_font.png", 
+                  zoom = 2)  # Adjust zoom for higher resolution
+```
+
+
+```{r}
+#for mapping each cluster to different cell types and conditions
+sankey_plot <- plot_sankey_comparison(
+  input_clusters = data_long,
+  clustering_1_filter = c("0","1","2","3","4","5","6","7", "8", "9", "10"),
+  value_col = "n",
+  text_size = 10,
+  col1 = "#cc2118",
+  col2 = "#1F78B4",
+  light_factor = 0.1
+)
+```
+
+
+```{r}
+#For dot plot
+
+library(Seurat)
+library(RColorBrewer)
+
+control_treat_seurat <- subset(merged_obj, OWN_BATCH_CELL %in% c("Mm-Beta 2-2", "control_db", "db/db", "control_mSTZ", "mSTZ"))
+
+Idents(control_treat_seurat) <- control_treat_seurat$OWN_BATCH_CELL
+# Define the desired order of identities:
+new_order <- c("Mm-Beta 2-2", "control_db", "db/db", "control_mSTZ", "mSTZ")
+
+# Re-factor the identities in control_treat_seurat:
+Idents(control_treat_seurat) <- factor(
+  x = Idents(control_treat_seurat),
+  levels = new_order
+)
+reds_palette <- brewer.pal(9, "Reds")  # Get 9 shades of red
+
+plot_beta <- DotPlot(control_treat_seurat, 
+        features = c("Mafa", "Ucn3", "Slc2a2", "Slc30a8", "Ffar1", "Atf3")) + 
+  scale_color_gradientn(colors = reds_palette) +  # Use Reds color palette
+  scale_size(range = c(0, 10)) +  # Set dot sizes
+  theme_bw() +  # Boxed theme
+  theme(
+    panel.border = element_rect(color = "black", fill = NA, size = 1),  # Box around plot
+    axis.text.x = element_text(angle = 90, hjust = 1,  color = "black"),  # Bold black x-axis labels
+    axis.text.y = element_text( color = "black"),  # Bold black y-axis labels
+    axis.title.x = element_text( color = "black", size = 14),  # Bold black x-axis title
+    axis.title.y = element_text( color = "black", size = 14),  # Bold black y-axis title
+    panel.grid.major = element_blank(),  # Remove grid lines
+    panel.grid.minor = element_blank()  
+  )
+
+
+ggsave("D:\\CellChat_simran\\Islet_integration\\Final_figures\\dot_plot_beta_another.tiff", 
+       plot = plot_beta, dpi = 300, width = 10, height = 4, units = "in", bg="white")
+```
+

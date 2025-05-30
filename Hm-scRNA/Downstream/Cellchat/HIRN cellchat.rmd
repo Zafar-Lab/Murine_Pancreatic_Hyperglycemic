@@ -1,0 +1,330 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+HIRN_seurat <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/HIRN detailed annotations all celltypes.rds")
+```
+
+```{r}
+unique(HIRN_seurat$subtype2_detailed)
+
+HIRN_seurat.metadata <- data.frame(HIRN_seurat@meta.data)
+
+Hs_endo.metadata <-   read.csv("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs.Edno.meta.updated.csv")
+```
+
+
+```{r}
+merged.meta <-  merge(HIRN_seurat.metadata, hs.endo.updated.meta, by = "barcode", all = T)
+#View(merged.meta)
+```
+
+
+```{r}
+for (i in 1:length(merged.meta$Hs_endo.metadata.subtype.detailed)) {
+  if (is.na(merged.meta$Hs_endo.metadata.subtype.detailed[i] == T)) {
+    merged.meta$Hs_endo.metadata.subtype.detailed[i] <- merged.meta$subtype2_detailed[i]
+        merged.meta$Hs_endo.metadata.subtype3[i] <- merged.meta$subtype2[i]
+
+  }
+  
+}
+
+unique(merged.meta$Hs_endo.metadata.subtype.detailed)
+unique(merged.meta$Hs_endo.metadata.subtype3)
+
+
+abc <- data.frame(HIRN_seurat@meta.data$barcodes2)
+abc$sr.no <- 1:length(abc$HIRN_seurat.meta.data.barcodes2)
+
+colnames(abc)[1] <- "barcode"
+
+
+merged.meta1 <-  merge(abc, merged.meta, by = "barcode", all = T)
+
+merged.meta1 <- merged.meta1 %>% arrange(sr.no)
+
+colnames(HIRN_seurat) == merged.meta1$barcode
+```
+
+```{r}
+HIRN_seurat$cellchat_states.detailed <- merged.meta1$Hs_endo.metadata.subtype.detailed
+HIRN_seurat$cellchat_states <- merged.meta1$Hs_endo.metadata.subtype3
+
+HIRN_seurat <-  SetIdent(HIRN_seurat,value = HIRN_seurat$cellchat_states)
+
+DimPlot(HIRN_seurat, label = T, repel = T)
+```
+```{r}
+HIRN_seurat$cellchat_states.condition <- paste0(HIRN_seurat$cellchat_states," ",HIRN_seurat$condition)
+
+HIRN_seurat$cellchat_states.detailed.condition <- paste0(HIRN_seurat$cellchat_states.detailed," ",HIRN_seurat$condition)
+
+unique(HIRN_seurat$cellchat_states.condition)
+unique(HIRN_seurat$cellchat_states.detailed.condition)
+
+
+ saveRDS(HIRN_seurat,"H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/HIRN detailed annotations all celltypes.rds")
+```
+
+```{r}
+data.input <- HIRN_seurat@assays$RNA@data
+meta <- HIRN_seurat@meta.data
+meta_column <- "cellchat_states.detailed"
+
+
+cellchat <- createCellChat(object = data.input, meta = meta, group.by = meta_column)
+cellchat <- setIdent(cellchat, ident.use = meta_column)
+CellChatDB <- CellChatDB.human
+CellChatDB.use <- CellChatDB
+cellchat@DB <- CellChatDB.use
+
+cellchat <- subsetData(cellchat)
+future::plan("multiprocess", workers = 4)
+cellchat <- identifyOverExpressedGenes(cellchat)
+cellchat <- identifyOverExpressedInteractions(cellchat)
+
+future::plan("sequential")
+
+cellchat <- computeCommunProb(cellchat)
+cellchat <- filterCommunication(cellchat, min.cells = 10)
+
+cellchat <- computeCommunProbPathway(cellchat)
+cellchat <- aggregateNet(cellchat)
+
+
+saveRDS(cellchat, file = "H:/LAB 20 IIT K/HIRN-PANC DB/CellChat/HIRN_cellchat_states.detailed.rds")
+```
+
+
+
+```{r}
+data.input <- HIRN_seurat@assays$RNA@data
+meta <- HIRN_seurat@meta.data
+meta_column <- "cellchat_states.detailed.condition"
+
+
+cellchat <- createCellChat(object = data.input, meta = meta, group.by = meta_column)
+cellchat <- setIdent(cellchat, ident.use = meta_column)
+CellChatDB <- CellChatDB.human
+CellChatDB.use <- CellChatDB
+cellchat@DB <- CellChatDB.use
+
+cellchat <- subsetData(cellchat)
+future::plan("multiprocess", workers = 4)
+cellchat <- identifyOverExpressedGenes(cellchat)
+cellchat <- identifyOverExpressedInteractions(cellchat)
+
+future::plan("sequential")
+
+cellchat <- computeCommunProb(cellchat)
+cellchat <- filterCommunication(cellchat, min.cells = 10)
+
+cellchat <- computeCommunProbPathway(cellchat)
+cellchat <- aggregateNet(cellchat)
+
+
+saveRDS(HIRN_cellchat_states.detailed.conditon, file = "H:/LAB 20 IIT K/HIRN-PANC DB/CellChat/HIRN_cellchat_states.detailed.conditon.rds")
+
+
+```
+
+
+
+#######################################################################################################################################
+
+```{r}
+#HIRN_cellchat_states.detailed.conditon <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/CellChat/HIRN_cellchat_states.detailed.conditon.rds")
+
+cellchatRDS_name <- "HIRN_cellchat_states.detailed.rds"
+cellchat <- readRDS(paste0("H:/LAB 20 IIT K/HIRN-PANC DB/CellChat/",cellchatRDS_name))
+
+
+Endocrine.pop <- c("Hs-Alpha 1", "Hs-Alpha 2", "Hs-Beta 1", "Hs-Beta 2", "Hs-Beta 3", "Hs-Delta 1", "Hs-Delta 2", "Hs-Gamma")
+Endocrine.pop.control <- c("Hs-Alpha 1 Control", "Hs-Alpha 2 Control", "Hs-Beta 1 Control", "Hs-Beta 2 Control", "Hs-Beta 3 Control", "Hs-Delta 1 Control", "Hs-Delta 2 Control", "Hs-Gamma Control")
+Endocrine.pop.obese <- c("Hs-Alpha 1 Obese", "Hs-Alpha 2 Obese", "Hs-Beta 1 Obese", "Hs-Beta 2 Obese", "Hs-Beta 3 Obese", "Hs-Delta 1 Obese", "Hs-Delta 2 Obese", "Hs-Gamma Obese")
+Endocrine.pop.T2D <- c("Hs-Alpha 1 T2D", "Hs-Alpha 2 T2D", "Hs-Beta 1 T2D", "Hs-Beta 2 T2D", "Hs-Beta 3 T2D", "Hs-Delta 1 T2D", "Hs-Delta 2 T2D", "Hs-Gamma T2D")
+
+df.net <- subsetCommunication(cellchat)
+pathways.show <- unique(df.net$pathway_name)
+
+
+sources.to.use <- c()
+targets.to.use <- c()
+
+
+```
+
+```{r}
+unique(df.net$source)
+```
+
+
+#Visulization
+```{r}
+groupSize <- as.numeric(table(cellchat@idents))
+par(mfrow = c(1,2), xpd=TRUE)
+netVisual_circle(HIRN_cellchat_states.detailed@net$count, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Number of interactions")
+netVisual_circle(HIRN_cellchat_states.detailed@net$weight, vertex.weight = groupSize, weight.scale = T, label.edge= F, title.name = "Interaction weights/strength")
+```
+
+
+
+Compute and visualize the network centrality scores
+```{r}
+# Compute the network centrality scores
+cellchat <- netAnalysis_computeCentrality(cellchat, slot.name = "netP") # the slot 'netP' means the inferred intercellular communication network of signaling pathways
+# Visualize the computed centrality scores using heatmap, allowing ready identification of major signaling roles of cell groups
+pdf("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/signaling_network_analysis123.pdf", height = 3, width = 10)
+netAnalysis_signalingRole_network(cellchat, signaling = pathways.show, width = 8, height = 2.5, font.size = 6)
+dev.off()
+
+```
+
+Identify and visualize outgoing communication pattern of secreting cells
+```{r}
+library(NMF)
+library(ggalluvial)
+```
+
+```{r}
+selectK(cellchat, pattern = "outgoing")
+nPatterns = 2
+cellchat <- identifyCommunicationPatterns(cellchat, pattern = "outgoing", k = nPatterns)
+
+# river plot
+outgoing.pattern<- netAnalysis_river(cellchat, pattern = "outgoing")
+
+ggsave(plot= outgoing.pattern , path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/", device = "tiff",  width = 12,  height = 7,  dpi = 600,  filename = "outgoing.pattern.tiff")
+
+```
+
+```{r}
+pdf("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/communication_pattern.outgoing.pdf", width = 16, height = 10)
+identifyCommunicationPatterns(cellchat, pattern = "outgoing", k = nPatterns, width = 7, height = 9, font.size = 6, title.legend = "Outgoing contributions")
+
+dev.off()
+
+
+pdf("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/communication_pattern.incoming.pdf", width = 16, height = 10)
+identifyCommunicationPatterns(cellchat, pattern = "incoming", k = nPatterns, width = 7, height = 9, font.size = 6, title.legend = "Incoming contributions")
+
+dev.off()
+
+```
+
+```{r}
+selectK(cellchat, pattern = "incoming")
+nPatterns = 2
+cellchat <- identifyCommunicationPatterns(cellchat, pattern = "incoming", k = nPatterns)
+
+# river plot
+incoming.pattern<- netAnalysis_river(cellchat, pattern = "incoming")
+
+ggsave(plot= incoming.pattern , path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/", device = "tiff",  width = 12,  height = 7,  dpi = 600,  filename = "incoming.pattern.tiff")
+
+```
+
+Identify signaling groups based on their functional similarity
+```{r}
+cellchat <- computeNetSimilarity(cellchat, type = "functional")
+cellchat <- netEmbedding(cellchat, type = "functional")
+#> Manifold learning of the signaling networks for a single dataset
+cellchat <- netClustering(cellchat, type = "functional")
+#> Classification learning of the signaling networks for a single dataset
+# Visualization in 2D-space
+ netVisual_embedding(cellchat, type = "functional", label.size = 3.5)
+ 
+ 
+outgoing1 <-  netAnalysis_dot(cellchat, pattern = "outgoing")
+incoming1 <- netAnalysis_dot(cellchat, pattern = "incoming")
+ 
+outgoing1|incoming1
+
+ggsave(plot = outgoing1, filename = "outgoing pattern dotplot.tiff", device = "tiff", height = 10, width = 12, path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/")
+
+ggsave(plot = incoming1, filename = "incoming pattern dotplot.tiff", device = "tiff", height = 10, width = 12, path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/")
+
+ggsave(plot = outgoing1|incoming1, filename = "communication pattern dotplot.tiff", device = "tiff", height = 10, width = 20, path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/")
+```
+
+
+##########################################
+HS.Alpha signaling
+
+```{r}
+pathways.show <- c("VEGF", "INSULIN", "MIF", "VISFATIN", "SOMATOSTATIN", "CALCR", "APP", "CADM", "CD99", "CDH", "NOTCH")
+pathways.show <- unique(df.net$pathway_name)
+
+netVisual_bubble(cellchat1, signaling = pathways.show, remove.isolate = T, sources.use = c("Hs-Alpha 1", "Hs-Alpha 2"),targets.use = c("Hs-Alpha 1", "Hs-Alpha 2"))
+
+
+n1 <- netVisual_bubble(HIRN_cellchat_states.detailed.conditon, signaling = pathways.show, remove.isolate = T, sources.use = c("Hs-Alpha 1 Control", "Hs-Alpha 2 Control"),targets.use =c("Hs-Alpha 1 Control", "Hs-Alpha 2 Control"))
+
+
+n2 <- netVisual_bubble(HIRN_cellchat_states.detailed.conditon, signaling = pathways.show, remove.isolate = T, sources.use = c("Hs-Alpha 1 T2D", "Hs-Alpha 2 T2D"),targets.use =c("Hs-Alpha 1 T2D", "Hs-Alpha 2 T2D"))
+
+n3 <-  netVisual_bubble(HIRN_cellchat_states.detailed.conditon, signaling = pathways.show, remove.isolate = T, sources.use = c("Hs-Alpha 1 Obese","Hs-Alpha 2 Obese"),targets.use =c("Hs-Alpha 1 Obese", "Hs-Alpha 2 Obese"))
+
+
+n1|n3|n2
+```
+
+
+```{r}
+ netVisual_aggregate(cellchat, signaling = pathways.show, edge.width.max = 10, signaling.name =  "INSULIN")
+```
+
+
+
+```{r}
+cellchat1 <- HIRN_cellchat_states.detailed
+n <- length(levels(cellchat1@idents))
+
+for (x in 1:n) {
+  for( y in 1:n){
+    if (x!=y){
+      cellchat1@net$prob[x,y, ] <- 0
+    }
+    
+    
+  }
+}
+
+
+saveRDS(cellchat1, file = "H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/HIRN Autocrine cellchat detailed.rds")
+```
+
+
+```{r}
+pop.to.consider <- c(Endocrine.pop, "Hs-Immune 1", "Hs-Immune 2","Hs-Immune 3", "Hs-Immune 4", "Hs-Endothelial 1", "Hs-Endothelial 2", "Hs-Endothelial 3", "Hs-Endothelial 4")
+
+pathways.show1 <-unique(df.net$pathway_name)
+pathways.show2 <- unique(df.net$pathway_name[which(df.net$prob*100 > 1)])
+
+p1 <- netVisual_bubble(cellchat,  signaling = pathways.show1, remove.isolate = F, sources.use = Endocrine.pop, targets.use = Endocrine.pop)+ggtitle("Autocrine cellchat detailed signaling comm.prob < 1%")
+
+p2 <- netVisual_bubble(cellchat,  signaling = pathways.show2, remove.isolate = F, sources.use = pop.to.consider, targets.use = pop.to.consider, )+ggtitle("Paracrine cellchat detailed signaling comm.prob < 1%")
+
+p3 <- netVisual_bubble(cellchat1, signaling = pathways.show2, remove.isolate = F, )
+
+p1|p3
+
+p2
+```
+
+
+```{r}
+p4 <- p1+ggtitle("Autocrine signaling selected pathways")|p3+ggtitle("Autocrine signaling all unique pathways")
+
+ggsave(plot = p1, filename = "Autocrine signaling one per cellchat detailed.tiff", device = "tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/", width = 8, height = 10, dpi = 600)
+```
+
+
+
+```{r}
+
+```
+

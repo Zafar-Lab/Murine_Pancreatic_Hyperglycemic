@@ -1,0 +1,135 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+library(fgsea)
+```
+
+
+```{r}
+Mm.ATAC <- SetIdent(Mm.ATAC, value = Mm.ATAC$predicted.cellstates.scran_norm)
+
+Mm.Delta_markers <- FindMarkers(Mm.ATAC, ident.1 = "Mm-Delta 1", ident.2 = "Mm-Delta 2", logfc.threshold = 0.25)
+
+Mm.Delta_markers$query_region <- rownames(Mm.Delta_markers)
+
+closest_genes_all <- ClosestFeature(Mm.ATAC, regions = Mm.Delta_markers$query_region)
+Da_peaks = merge(Mm.Delta_markers, closest_genes_all, by = "query_region", all = T)
+Da_peaks<- unique(Da_peaks)
+
+Da_peaks <- Da_peaks[Da_peaks$distance == 0, ]
+Da_peaks <- na.omit(Da_peaks[Da_peaks$type != "gap", ])
+
+View(Da_peaks)
+
+
+Delta_markers <- c("Ins1", "Ins2", "Iapp", "Insr", "Pax6", "Hspb1", "Ttr", "Ppr")
+```
+
+
+```{r}
+a <- gmtPathways("H:\\LAB 20 IIT K\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/h.all.v7.5.1.symbols.gmt")
+b <- gmtPathways("H:\\LAB 20 IIT K\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/m1.all.v0.3.symbols.gmt")
+c <- gmtPathways("H:\\LAB 20 IIT K\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/m2.all.v0.3.symbols.gmt")
+d <- gmtPathways("H:\\LAB 20 IIT K\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/m2.cp.v0.3.symbols.gmt")
+e <- gmtPathways("H:\\LAB 20 IIT K\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/m5.all.v0.3.symbols.gmt")
+f <- gmtPathways("H:\\LAB 20 IIT K\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/mh.all.v0.3.symbols.gmt")
+
+genesets <- c(a, b, c, d, e, f)
+```
+
+
+```{r}
+Markers_gsea <- Da_peaks
+Markers_gsea$gene <- Da_peaks$gene_name
+Markers_gsea <- Markers_gsea %>% arrange(desc(avg_log2FC))
+fold_change <- Markers_gsea$avg_log2FC
+names(fold_change) <- Markers_gsea$gene
+
+#GSEA Pathway sheet 
+##################################################################################################################
+gsea_sheet <- fgsea(pathways = genesets, stats = fold_change, minSize = 5, maxSize = 5000) 
+gsea_sheet <- gsea_sheet %>% arrange(NES)
+#gsea_sheet_sig <- filter(gsea_sheet, padj <= 0.05) %>% arrange(NES)
+
+
+for (x in 1:length(gsea_sheet$leadingEdge)) {
+  gsea_sheet$genes[x]<- paste0(unlist(gsea_sheet$leadingEdge[x]), collapse = ", ")
+}
+
+gsea_sheet$leadingEdge <- NULL
+gsea_sheet <- unique(gsea_sheet)
+gsea_sheet <- gsea_sheet[gsea_sheet$pval < 0.05, ]
+
+View(gsea_sheet)
+writexl::write_xlsx(gsea_sheet, path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC Delta 1 vs 2 GSEA.xlsx")
+
+```
+
+
+```{r}
+Mm.scRNA <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/Mm.seuratSC.scran norm.detailed JT.rds")
+Mm.ATAC <- readRDS("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC working RDS/Mm-ATAC seurat 121222.rds")
+```
+
+```{r}
+Delta_markers <- c("Ins1", "Ins2", "Iapp", "Insr", "Pax6", "Hspb1", "Ttr", "Ppr")
+Da_peaks_sorted <- Da_peaks[Da_peaks$gene_name %in% Delta_markers, ]
+
+```
+
+```{r}
+idents.to.use <- c("Mm-Delta 1", "Mm-Delta 2")
+
+Mm.scRNA.idents.to.use <- c("Mm-Delta 1", "Mm-Delta 2")
+
+pdf(file = paste0("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Mm.ATAC Delta analysis/Mm.ATAC Delta 1 vs 2.pdf"), width = 17, height = 6.5)
+
+################################################################################################################################
+Mm.ATAC<- SetIdent(Mm.ATAC, value = Mm.ATAC$)
+
+#Mm.scRNA <- SetIdent(Mm.scRNA, value = Mm.scRNA$cellstates.updated)
+#levels(Mm.scRNA) <- rev(Mm.ScRNA.levels$X.1)
+levels(Mm.ATAC) <- rev(levels(Mm.ATAC))
+
+
+DefaultAssay(Mm.ATAC) <- "ATAC"
+#DefaultAssay(Mm.scRNA) <- "RNA"
+
+for (i in 1:length(Da_peaks_sorted$gene_name)
+     ) {
+
+print(i)
+  print(Da_peaks_sorted$gene_name[i])
+levels(Mm.ATAC) <- rev(levels(Mm.ATAC))
+Plot <- CoveragePlot(object = Mm.ATAC,
+  region = Da_peaks_sorted$query_region[i],
+  extend.upstream = 1000,
+  extend.downstream = 1000,
+  #features = Da_peaks_sorted$gene_name[i], 
+  links = F, idents = idents.to.use, 
+  region.highlight = StringToGRanges(Da_peaks_sorted$query_region[i]
+                                     )
+  )+patchwork::plot_annotation(title = paste0(Da_peaks_sorted$gene_name[i]," ",Da_peaks_sorted$type[i]," ",Da_peaks_sorted$query_region[i]," ", Da_peaks_sorted$gene_biotype[i]))
+  
+levels(Mm.ATAC) <- rev(levels(Mm.ATAC))
+
+# Dot.Plot <- DotPlot(Mm.ATAC, assay = "RNA", features = Da_peaks_sorted$gene_name[i],idents = idents.to.use, scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red")) +theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+#         axis.text.y = element_text(size=8, color="black"),
+#         axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6))+ ggtitle("Mm-scATAC seq RNA assay") 
+
+
+# Dot.Plot1 <- DotPlot(Mm.scRNA, assay = "RNA", features = Da_peaks_sorted$gene_name[i],idents = Mm.scRNA.idents.to.use, scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red")) +theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+#         axis.text.y = element_text(size=8, color="black"),
+#         axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6))+ ggtitle( "Mm-scRNA seq RNA assay") 
+
+print(Plot#+Dot.Plot 
+      + Dot.Plot1)
+
+  }
+
+  dev.off()
+  
+```
+

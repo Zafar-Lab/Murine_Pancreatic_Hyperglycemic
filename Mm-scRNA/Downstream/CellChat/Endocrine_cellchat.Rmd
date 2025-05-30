@@ -1,0 +1,1150 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+endocrine_subset <- subset(seurat, subset = cellstates.updated == c("Mm-Beta 1", "Mm-Beta 2", "Mm-Gamma 1", "Mm-Alpha 1", "Mm-Delta 2", "Mm-Beta 3", "Mm-Alpha 2", "Mm-Delta 1", "Mm-Delta 3", "Mm-Gamma 2"))
+
+endocrine_subset
+```
+```{r}
+unique(endocrine_subset$orig.ident)
+```
+```{r}
+library(CellChat)
+library(patchwork)
+library(NMF)
+library(ggalluvial)
+```
+```{r}
+table(endocrine_subset$orig.ident)
+```
+```{r}
+data.input <- GetAssayData(endocrine_subset, assay = "RNA", slot = "data")
+
+labels <- Idents(endocrine_subset)
+
+meta <- data.frame(group = labels, row.names = names(labels))
+
+# Assuming 'sample_type' is already in your Seurat object's metadata
+sample_type <- endocrine_subset$orig.ident
+
+# Add the new column to the meta data frame
+meta$sample_type <- sample_type
+
+cell.use = rownames(meta)[meta$sample_type == "RC"]
+data.input = data.input[, cell.use]
+meta = meta[cell.use, ]
+unique(meta$group)
+```
+```{r}
+cellchat_RC <- createCellChat(object = data.input, meta = meta, group.by = "group")
+
+CellChatDB.use <- subsetDB(CellChatDB.mouse, search = c("Secreted Signaling", "ECM-Receptor", "Cell-Cell Contact"))
+
+cellchat_RC@DB <- CellChatDB.use
+
+cellchat_RC <- subsetData(cellchat_RC)
+cellchat_RC <- identifyOverExpressedGenes(cellchat_RC)
+cellchat_RC <- identifyOverExpressedInteractions(cellchat_RC)
+```
+```{r}
+cellchat_RC <- projectData(cellchat_RC, PPI.mouse)
+
+cellchat_RC@idents <- droplevels(cellchat_RC@idents)
+
+cellchat_RC <- computeCommunProb(cellchat_RC, raw.use = FALSE)
+
+cellchat_RC <- filterCommunication(cellchat_RC, min.cells = 10)
+
+cellchat_RC <- computeCommunProbPathway(cellchat_RC)
+
+cellchat_RC <- aggregateNet(cellchat_RC)
+
+cellchat_RC <- netAnalysis_computeCentrality(cellchat_RC, slot.name = "netP")
+
+selectK(cellchat_RC, pattern = "outgoing")
+
+nPatterns = 3
+cellchat_RC <- identifyCommunicationPatterns(cellchat_RC, pattern = "outgoing", k=nPatterns, width = 5, height = 15)
+```
+
+```{r}
+selectK(cellchat_RC, pattern = "incoming")
+
+nPatterns = 3
+cellchat_RC <- identifyCommunicationPatterns(cellchat_RC, pattern = "incoming", k=nPatterns, width = 5, height = 15)
+```
+
+```{r}
+cellchat_RC <- computeNetSimilarity(cellchat_RC, type = "functional")
+cellchat_RC <- netEmbedding(cellchat_RC, type = "functional")
+cellchat_RC <- netClustering(cellchat_RC, type = "functional", do.parallel = FALSE)
+
+
+cellchat_RC <- computeNetSimilarity(cellchat_RC, type = "structural")
+cellchat_RC <- netEmbedding(cellchat_RC, type = "structural")
+cellchat_RC <- netClustering(cellchat_RC, type = "structural", do.parallel = FALSE)
+
+
+saveRDS(cellchat_RC, "D:\\CellChat_simran\\Redo_analysis_cellchat\\cellchat_RC.rds")
+
+df.net_RC <- subsetCommunication(cellchat_RC)
+
+write.csv(df.net_RC, "D:\\CellChat_simran\\Redo_analysis_cellchat\\cellchat_RC_subset_communication.csv")
+```
+
+
+```{r}
+data.input <- GetAssayData(endocrine_subset, assay = "RNA", slot = "data")
+
+labels <- Idents(endocrine_subset)
+
+meta <- data.frame(group = labels, row.names = names(labels))
+
+# Assuming 'sample_type' is already in your Seurat object's metadata
+sample_type <- endocrine_subset$orig.ident
+
+# Add the new column to the meta data frame
+meta$sample_type <- sample_type
+
+cell.use = rownames(meta)[meta$sample_type == "HFD"]
+data.input = data.input[, cell.use]
+meta = meta[cell.use, ]
+unique(meta$group)
+```
+```{r}
+cellchat_HFD <- createCellChat(object = data.input, meta = meta, group.by = "group")
+
+CellChatDB.use <- subsetDB(CellChatDB.mouse, search = c("Secreted Signaling", "ECM-Receptor", "Cell-Cell Contact"))
+
+cellchat_HFD@DB <- CellChatDB.use
+
+cellchat_HFD <- subsetData(cellchat_HFD)
+cellchat_HFD <- identifyOverExpressedGenes(cellchat_HFD)
+cellchat_HFD <- identifyOverExpressedInteractions(cellchat_HFD)
+```
+```{r}
+cellchat_HFD <- projectData(cellchat_HFD, PPI.mouse)
+
+cellchat_HFD@idents <- droplevels(cellchat_HFD@idents)
+
+cellchat_HFD <- computeCommunProb(cellchat_HFD, raw.use = FALSE)
+
+cellchat_HFD <- filterCommunication(cellchat_HFD, min.cells = 10)
+
+cellchat_HFD <- computeCommunProbPathway(cellchat_HFD)
+
+cellchat_HFD <- aggregateNet(cellchat_HFD)
+
+cellchat_HFD <- netAnalysis_computeCentrality(cellchat_HFD, slot.name = "netP")
+
+selectK(cellchat_HFD, pattern = "outgoing")
+
+nPatterns = 3
+cellchat_HFD <- identifyCommunicationPatterns(cellchat_HFD, pattern = "outgoing", k=nPatterns, width = 5, height = 15)
+
+selectK(cellchat_HFD, pattern = "incoming")
+
+nPatterns = 3
+cellchat_HFD <- identifyCommunicationPatterns(cellchat_HFD, pattern = "incoming", k=nPatterns, width = 5, height = 15)
+
+```
+
+
+```{r}
+cellchat_HFD <- computeNetSimilarity(cellchat_HFD, type = "functional")
+cellchat_HFD <- netEmbedding(cellchat_HFD, type = "functional")
+cellchat_HFD <- netClustering(cellchat_HFD, type = "functional", do.parallel = FALSE)
+
+
+cellchat_HFD <- computeNetSimilarity(cellchat_HFD, type = "structural")
+cellchat_HFD <- netEmbedding(cellchat_HFD, type = "structural")
+cellchat_HFD <- netClustering(cellchat_HFD, type = "structural", do.parallel = FALSE)
+
+saveRDS(cellchat_HFD, "D:\\CellChat_simran\\Redo_analysis_cellchat\\cellchat_HFD.rds")
+
+df.net_HFD <- subsetCommunication(cellchat_HFD)
+
+write.csv(df.net_HFD, "D:\\CellChat_simran\\Redo_analysis_cellchat\\cellchat_HFD_subset_communication.csv")
+```
+
+
+```{r}
+object.list <- list(RC = cellchat_RC, HFD = cellchat_HFD)
+
+names(object.list)
+
+cellchat_merged <- mergeCellChat(object.list, add.names = names(object.list))
+
+cellchat_merged
+```
+```{r}
+plo1 <- rankNet(cellchat_merged, mode = "comparison", stacked = T, do.stat = TRUE)
+plot2 <- rankNet(cellchat_merged, mode = "comparison", stacked = F, do.stat = TRUE)
+
+ggsave(plot = plo1, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\signaling_pathways_comparison.tiff", units = "in", height = 7, width = 7, dpi = 300)
+```
+
+```{r}
+gg1 <- compareInteractions(cellchat_merged, show.legend = F, group = c(1,2))
+gg2 <- compareInteractions(cellchat_merged, show.legend = F, group = c(1,2), measure = "weight")
+gg <- gg1 + gg2
+
+ggsave(plot = gg, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\interaction_strength.tiff", units = "in", height = 7, width = 7, dpi = 300)
+```
+
+```{r}
+#Differential number of interactions
+
+par(mfrow = c(1,2), xpd=TRUE)
+gg3 <- netVisual_diffInteraction(cellchat_merged, weight.scale = T)
+gg4 <- netVisual_diffInteraction(cellchat_merged, weight.scale = T, measure = "weight")
+
+ggsave(plot = gg4, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\differential_interaction_strength.tiff", units = "in", height = 7, width = 7, dpi = 300)
+
+gg5 <- netVisual_heatmap(cellchat_merged)
+#> Do heatmap based on a merged object
+gg6 <- netVisual_heatmap(cellchat_merged, measure = "weight")
+#> Do heatmap based on a merged object
+gg_a <- gg5 + gg6
+
+ggsave(plot = gg_a, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\heatmap_interaction_strength.tiff", units = "in", height = 7, width = 8, dpi = 300)
+```
+
+
+```{r}
+weight.max <- getMaxWeight(object.list, attribute = c("idents","count"))
+par(mfrow = c(1,2), xpd=TRUE)
+for (i in 1:length(object.list)) {
+  netVisual_circle(object.list[[i]]@net$count, weight.scale = T, label.edge= F, edge.weight.max = weight.max[2], edge.width.max = 12, title.name = paste0("Number of interactions - ", names(object.list)[i]))
+}
+```
+```{r}
+#Compare the major sources and targets in 2D space
+
+num.link <- sapply(object.list, function(x) {rowSums(x@net$count) + colSums(x@net$count)-diag(x@net$count)})
+weight.MinMax <- c(min(num.link), max(num.link)) # control the dot size in the different datasets
+gg <- list()
+for (i in 1:length(object.list)) {
+  gg[[i]] <- netAnalysis_signalingRole_scatter(object.list[[i]], title = names(object.list)[i], weight.MinMax = weight.MinMax)
+}
+#> Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
+#> Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
+abcd <- patchwork::wrap_plots(plots = gg)
+
+ggsave(plot = abcd, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\major_source_target.tiff", units = "in", height = 6, width = 9, dpi = 300)
+```
+
+
+```{r}
+gg_b <- netAnalysis_signalingChanges_scatter(cellchat_merged, idents.use = "Mm-Beta 2")
+
+ggsave(plot = gg_b, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Signaling_beta2.tiff", units = "in", height = 6, width = 8, dpi = 300)
+
+gg_c <- netAnalysis_signalingChanges_scatter(cellchat_merged, idents.use = "Mm-Beta 1")
+```
+```{r}
+#Signaling groups based on functional similarity
+#cellchat_merged <- computeNetSimilarityPairwise(cellchat_merged, type = "functional")
+#> Compute signaling network similarity for datasets 1 2
+
+#cellchat_merged <- netEmbedding(cellchat_merged, type = "functional")
+#> Manifold learning of the signaling networks for datasets 1 2
+
+#cellchat_merged <- netClustering(cellchat_merged, type = "functional")
+#> Classification learning of the signaling networks for datasets 1 2
+
+# Visualization in 2D-space
+#netVisual_embeddingPairwise(cellchat_merged, type = "functional", label.size = 3.5)
+#> 2D visualization of signaling networks from datasets 1 2
+```
+
+```{r}
+library(ComplexHeatmap)
+
+i = 1
+# combining all the identified signaling pathways from different datasets 
+pathway.union <- union(object.list[[i]]@netP$pathways, object.list[[i+1]]@netP$pathways)
+ht1 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i], width = 5, height = 15)
+ht2 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+1], width = 5, height = 15)
+heatmap_outgoing <- draw(ht1 + ht2, ht_gap = unit(0.7, "cm"))
+
+
+ggsave(plot = heatmap_outgoing, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\heatmap_outgoing_signaling.tiff", units = "in", dpi = 300)
+
+#incoming signaling patterns
+
+ht3 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i], width = 5, height = 15, color.heatmap = "GnBu")
+ht4 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "incoming", signaling = pathway.union, title = names(object.list)[i+1], width = 5, height = 15, color.heatmap = "GnBu")
+heatmap_incoming <- draw(ht3 + ht4, ht_gap = unit(0.7, "cm"))
+```
+
+```{r}
+ht5 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "all", signaling = pathway.union, title = names(object.list)[i], width = 5, height = 15, color.heatmap = "OrRd")
+ht6 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "all", signaling = pathway.union, title = names(object.list)[i+1], width = 5, height = 15, color.heatmap = "OrRd")
+heatmap_overall <- draw(ht5 + ht6, ht_gap = unit(0.7, "cm"))
+
+```
+```{r}
+#Upregulated and downregulated LR pairs
+netVisual_bubble(cellchat_merged, sources.use = 2, targets.use = c(1:10),  comparison = c(1, 2), angle.x = 45)
+netVisual_bubble(cellchat_merged, sources.use = 2, targets.use = c(1:10),  comparison = c(1, 2), angle.x = 45)
+
+gg_up <- netVisual_bubble(cellchat_merged, sources.use = 2, targets.use = c(1:10),  comparison = c(1, 2), max.dataset = 2, title.name = "Increased signaling in HFD", angle.x = 45, remove.isolate = T)
+#> Comparing communications on a merged object
+
+gg_down <- netVisual_bubble(cellchat_merged, sources.use = 2, targets.use = c(1:10),  comparison = c(1, 2), max.dataset = 1, title.name = "Decreased signaling in HFD", angle.x = 45, remove.isolate = T)
+#> Comparing communications on a merged object
+
+gg_LR <- (gg_up + gg_down)
+
+saveRDS(cellchat_merged, "D:\\CellChat_simran\\Redo_analysis_cellchat\\endocrine_cellchat_merged.rds")
+```
+
+```{r}
+#Dysfunctional analysis by differential expression
+
+# define a positive dataset, i.e., the dataset with positive fold change against the other dataset
+pos.dataset = "HFD"
+
+# define a char name used for storing the results of differential expression analysis
+features.name = pos.dataset
+
+# perform differential expression analysis
+cellchat_merged <- identifyOverExpressedGenes(cellchat_merged, group.dataset = "datasets", pos.dataset = pos.dataset, features.name = features.name, only.pos = FALSE, thresh.pc = 0.1, thresh.fc = 0.1, thresh.p = 1)
+
+#> Use the joint cell labels from the merged CellChat object
+# map the results of differential expression analysis onto the inferred cell-cell communications to easily manage/subset the ligand-receptor pairs of interest
+net <- netMappingDEG(cellchat_merged, features.name = features.name)
+
+# extract the ligand-receptor pairs with upregulated ligands in LS
+net.up <- subsetCommunication(cellchat_merged, net = net, datasets = "HFD",ligand.logFC = 0.2, receptor.logFC = NULL)
+
+# extract the ligand-receptor pairs with upregulated ligands and upregulated recetptors in NL, i.e.,downregulated in LS
+net.down <- subsetCommunication(cellchat_merged, net = net, datasets = "RC",ligand.logFC = -0.1, receptor.logFC = -0.1)
+
+gene.up <- extractGeneSubsetFromPair(net.up, cellchat_merged)
+gene.down <- extractGeneSubsetFromPair(net.down, cellchat_merged)
+
+#Visualization
+pairLR.use.up = net.up[, "interaction_name", drop = F]
+gg7 <- netVisual_bubble(cellchat_merged, pairLR.use = pairLR.use.up, sources.use = 2, targets.use = c(1:10), comparison = c(1, 2),  angle.x = 90, remove.isolate = T,title.name = paste0("Up-regulated signaling in ", names(object.list)[2]))
+
+#> Comparing communications on a merged object
+pairLR.use.down = net.down[, "interaction_name", drop = F]
+gg8 <- netVisual_bubble(cellchat_merged, pairLR.use = pairLR.use.down, sources.use = 2, targets.use = c(1:10), comparison = c(1, 2),  angle.x = 90, remove.isolate = T,title.name = paste0("Down-regulated signaling in ", names(object.list)[2]))
+
+#> Comparing communications on a merged object
+gg_DE <- gg7 + gg8
+
+
+write.csv(net.up, "D:\\CellChat_simran\\Redo_analysis_cellchat\\LR_pairs_upreg_DEA.csv")
+write.csv(net.down, "D:\\CellChat_simran\\Redo_analysis_cellchat\\LR_pairs_downreg_DEA.csv")
+```
+
+```{r}
+library(ComplexHeatmap)
+
+i = 1
+# combining all the identified signaling pathways from different datasets 
+pathway.union <- union(object.list[[i]]@netP$pathways, object.list[[i+1]]@netP$pathways)
+ht1 = netAnalysis_signalingRole_heatmap(object.list[[i]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i], width = 5, height = 15)
+ht2 = netAnalysis_signalingRole_heatmap(object.list[[i+1]], pattern = "outgoing", signaling = pathway.union, title = names(object.list)[i+1], width = 5, height = 15)
+heatmap_outgoing <- draw(ht1 + ht2, ht_gap = unit(0.7, "cm"))
+
+# Define the object and pattern
+object <- object.list[[i]]
+pattern <- "outgoing"
+signaling <- pathway.union
+
+# Access the signaling role data
+heatmap_matrix <- object@netP$signalingRole[[pattern]]
+
+# Subset the matrix for the selected pathways
+heatmap_matrix_subset <- heatmap_matrix[signaling, , drop = FALSE]
+
+```
+
+
+```{r}
+library(CellChat)
+library(patchwork)
+
+cellchat_RC <- readRDS("D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\cellchat_RC.rds")
+cellchat_HFD <- readRDS("D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\cellchat_HFD.rds")
+cellchat_merged <- readRDS("D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\endocrine_cellchat_merged.rds")
+
+object.list <- list(RC = cellchat_RC, HFD = cellchat_HFD)
+
+names(object.list)
+
+#Circle plots for signaling patterns
+
+pathways.show <- c("CCL") 
+weight.max <- getMaxWeight(object.list, slot.name = c("netP"), attribute = pathways.show) 
+par(mfrow = c(1,2), xpd=TRUE)
+for (i in 1:length(object.list)) {
+  netVisual_aggregate(object.list[[i]], signaling = pathways.show, layout = "circle", edge.weight.max = weight.max[1], edge.width.max = 10, signaling.name = paste(pathways.show, names(object.list)[i]))
+}
+
+```
+
+```{r}
+pathways.show <- c("NOTCH") 
+vertex.receiver = seq(1,4) 
+netVisual_aggregate(cellchat_RC, signaling = pathways.show,  vertex.receiver = vertex.receiver)
+par(mfrow=c(1,1))
+netVisual_aggregate(cellchat_RC, signaling = pathways.show, layout = "circle")
+
+
+
+
+netVisual_bubble(cellchat_merged, sources.use = "Mm-Delta 1", targets.use = c(1:10),  comparison = c(1, 2), angle.x = 45)
+
+netVisual_bubble(cellchat_merged, sources.use = "Mm-Delta 2", targets.use = c(1:10),  comparison = c(1, 2), angle.x = 45)
+
+netVisual_bubble(cellchat_merged, sources.use = "Mm-Delta 3", targets.use = c(1:10),  comparison = c(1, 2), angle.x = 45)
+
+netVisual_bubble(cellchat_merged, sources.use = "Mm-Alpha 1", targets.use = c(1:10),  comparison = c(1, 2), angle.x = 45)
+
+netVisual_bubble(cellchat_merged, sources.use = "Mm-Alpha 2", targets.use = c(1:10),  comparison = c(1, 2), angle.x = 45)
+
+netVisual_bubble(cellchat_merged, sources.use = "Mm-Beta 3", targets.use = c(1:10),  comparison = c(1, 2), angle.x = 45)
+
+alpha2_RC <- netVisual_bubble(cellchat_merged, sources.use = "Mm-Alpha 2", targets.use = c(1:10),  comparison = 1, angle.x = 45)
+
+alpha2_HFD <- netVisual_bubble(cellchat_merged, sources.use = "Mm-Alpha 2", targets.use = c(1:10),  comparison = 2, angle.x = 45)
+
+alpha2_plot <- alpha2_RC + alpha2_HFD
+
+ggsave(plot = alpha2_plot, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\alpha2_RC_HFD.tiff", units = "in", dpi = 300)
+```
+```{r}
+alpha1_RC <- netVisual_bubble(cellchat_merged, sources.use = "Mm-Alpha 1", targets.use = c(1:10),  comparison = 1, angle.x = 45)
+
+alpha1_HFD <- netVisual_bubble(cellchat_merged, sources.use = "Mm-Alpha 1", targets.use = c(1:10),  comparison = 2, angle.x = 45)
+
+alpha1_plot <- alpha1_RC + alpha1_HFD
+
+ggsave(plot = alpha1_plot, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\alpha1_RC_HFD.tiff", units = "in", dpi = 300, width = 17, height = 9)
+
+
+
+beta1_RC <- netVisual_bubble(cellchat_merged, sources.use = "Mm-Beta 1", targets.use = c(1:10),  comparison = 1, angle.x = 45)
+
+beta1_HFD <- netVisual_bubble(cellchat_merged, sources.use = "Mm-Beta 1", targets.use = c(1:10),  comparison = 2, angle.x = 45)
+
+beta1_plot <- beta1_RC + beta1_HFD
+
+ggsave(plot = beta1_plot, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\beta1_RC_HFD.tiff", units = "in", dpi = 300, width = 17, height = 10)
+
+
+
+beta2_RC <- netVisual_bubble(cellchat_merged, sources.use = "Mm-Beta 2", targets.use = c(1:10),  comparison = 1, angle.x = 45)
+
+beta2_HFD <- netVisual_bubble(cellchat_merged, sources.use = "Mm-Beta 2", targets.use = c(1:10),  comparison = 2, angle.x = 45)
+
+beta2_plot <- beta2_RC + beta2_HFD
+
+ggsave(plot = beta2_plot, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\beta2_RC_HFD.tiff", units = "in", dpi = 300, width = 17, height = 10)
+
+
+
+beta3_RC <- netVisual_bubble(cellchat_merged, sources.use = "Mm-Beta 3", targets.use = c(1:10),  comparison = 1, angle.x = 45)
+
+beta3_HFD <- netVisual_bubble(cellchat_merged, sources.use = "Mm-Beta 3", targets.use = c(1:10),  comparison = 2, angle.x = 45)
+
+beta3_plot <- beta3_RC + beta3_HFD
+
+ggsave(plot = beta3_plot, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\beta3_RC_HFD.tiff", units = "in", dpi = 300, width = 17, height = 10)
+
+
+
+
+delta1_RC <- netVisual_bubble(cellchat_merged, sources.use = "Mm-Delta 1", targets.use = c(1:10),  comparison = 1, angle.x = 45)
+
+delta1_HFD <- netVisual_bubble(cellchat_merged, sources.use = "Mm-Delta 1", targets.use = c(1:10),  comparison = 2, angle.x = 45)
+
+delta1_plot <- delta1_RC + delta1_HFD
+
+ggsave(plot = delta1_plot, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\delta1_RC_HFD.tiff", units = "in", dpi = 300, width = 17, height = 10)
+
+
+
+
+delta2_RC <- netVisual_bubble(cellchat_merged, sources.use = "Mm-Delta 2", targets.use = c(1:10),  comparison = 1, angle.x = 45)
+
+delta2_HFD <- netVisual_bubble(cellchat_merged, sources.use = "Mm-Delta 2", targets.use = c(1:10),  comparison = 2, angle.x = 45)
+
+delta2_plot <- delta2_RC + delta2_HFD
+
+ggsave(plot = delta2_plot, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\delta2_RC_HFD.tiff", units = "in", dpi = 300, width = 17, height = 10)
+
+
+
+delta3_RC <- netVisual_bubble(cellchat_merged, sources.use = "Mm-Delta 3", targets.use = c(1:10),  comparison = 1, angle.x = 45)
+
+delta3_HFD <- netVisual_bubble(cellchat_merged, sources.use = "Mm-Delta 3", targets.use = c(1:10),  comparison = 2, angle.x = 45)
+
+delta3_plot <- delta3_RC + delta3_HFD
+
+ggsave(plot = delta3_plot, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\delta3_RC_HFD.tiff", units = "in", dpi = 300, width = 19, height = 8)
+
+```
+
+
+```{r}
+# Extract interaction data for NL
+df_RC <- read.csv("D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\cellchat_RC_subset_communication.csv")
+
+# Extract interaction data for LS
+df_HFD <- read.csv("D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\cellchat_HFD_subset_communication.csv")
+
+# Add a condition column to each dataset
+df_RC$Condition <- "RC"
+df_HFD$Condition <- "HFD"
+
+# Combine the two datasets
+df_combined <- rbind(df_RC, df_HFD)
+
+
+
+# Use ggplot2 to customize the layout
+library(ggplot2)
+ggplot(df_combined, aes(x = Condition, y = interaction, size = p.value, fill = communication.prob)) +
+  geom_point() +
+  scale_fill_gradient(low = "blue", high = "red") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+```{r}
+# Combine source and target into a single interaction label
+df_RC$Interaction <- paste(df_RC$source, "->", df_RC$target, sep = " ")
+df_HFD$Interaction <- paste(df_HFD$source, "->", df_HFD$target, sep = " ")
+
+# Combine the two datasets with their respective conditions
+df_combined <- rbind(df_RC, df_HFD)
+
+df_subset <- subset(df_combined, source == "Mm-Beta 1")
+
+# Ensure the `Condition` column is a factor for plotting order
+df_subset$Condition <- factor(df_subset$Condition, levels = c("RC", "HFD"))
+
+
+
+
+
+library(ggplot2)
+
+# Create the dot plot
+ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = prob), shape = 21) + # Use size to represent `prob` visually
+  scale_fill_gradient(low = "blue", high = "red") + # Gradient for `prob`
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) + # Separate by Condition
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1), # Rotate x-axis text
+    panel.grid.major = element_line(color = "black")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    fill = "Probability",
+    size = "Probability",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+```
+```{r}
+library(ggplot2)
+
+# Create the dot plot with black text on axes
+plot1 <- ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = prob), shape = 21) + # Use size to represent `prob` visually
+  scale_fill_gradient(low = "blue", high = "red") + # Gradient for `prob`
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) + # Separate by Condition
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"), # Black x-axis text
+    axis.text.y = element_text(color = "black"), # Black y-axis text
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    fill = "Probability",
+    size = "Probability",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+ggsave(plot = plot1, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\beta1_try_RC_HFD.tiff", units = "in", dpi = 300, width = 20, height = 17, bg="white")
+
+
+
+
+
+
+
+library(ggplot2)
+
+# Create the dot plot with black, bold, and larger facet headings
+plot1 <- ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = prob), shape = 21) + # Use size to represent `prob` visually
+  scale_fill_gradient(low = "blue", high = "red") + # Gradient for `prob`
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) + # Separate by Condition
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"), # Black x-axis text
+    axis.text.y = element_text(color = "black"), # Black y-axis text
+    strip.text = element_text(size = 14, face = "bold", color = "black"), # Customize facet headings
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    fill = "Probability",
+    size = "Probability",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+
+```
+
+
+```{r}
+library(ggplot2)
+
+# Define the gradient colors for the scale
+custom_colors <- c("purple", "blue", "green", "yellow", "red")
+
+# Create the dot plot with a custom gradient and matching color bar
+ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = prob), shape = 21) + # Use size to represent `prob` visually
+  scale_fill_gradientn(
+    colors = custom_colors,
+    name = "Commun. Prob.", # Match the label in the color bar
+    guide = guide_colorbar(barwidth = 1, barheight = 10) # Adjust color bar dimensions
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) + # Separate by Condition
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"), # Black x-axis text
+    axis.text.y = element_text(color = "black"), # Black y-axis text
+    strip.text = element_text(size = 14, face = "bold", color = "black"), # Customize facet headings
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    size = "Probability", # Customize the size legend
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+```
+
+
+```{r}
+library(RColorBrewer)
+n.colors <- 11
+custom_colors <- colorRampPalette(brewer.pal(11, "Spectral"))(n.colors)
+
+# Create the dot plot
+spectral <- ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = prob), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10)
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    size = "Probability",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+
+
+
+
+
+
+
+library(ggplot2)
+library(viridis)
+
+# Generate colors from the "viridis" palette
+n.colors <- 10
+custom_colors <- viridis(n.colors)
+
+# Create the dot plot
+ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = prob), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10)
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    size = "Probability",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+```
+
+
+
+```{r}
+library(ggplot2)
+library(RColorBrewer)
+
+# Generate reversed colors from the "Spectral" palette
+n.colors <- 11
+custom_colors <- rev(colorRampPalette(brewer.pal(11, "Spectral"))(n.colors))
+
+# Create the dot plot
+spectral_rev <- ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = pval), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10)
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    size = "pval",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+
+ggsave(plot = spectral_rev, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\ggplots\\beta1_pval_prob.tiff", units = "in", dpi = 300, width = 20, height = 17, bg="white")
+
+
+
+spectral <- ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = prob), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10)
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    size = "prob",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+
+ggsave(plot = spectral, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\ggplots\\beta1_prob.tiff", units = "in", dpi = 300, width = 20, height = 17, bg="white")
+```
+
+
+
+```{r}
+df_subset_beta2 <- subset(df_combined, source == "Mm-Beta 2")
+
+# Ensure the `Condition` column is a factor for plotting order
+df_subset$Condition <- factor(df_subset$Condition, levels = c("RC", "HFD"))
+
+
+spectral <- ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = prob), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10)
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    size = "prob",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+
+ggsave(plot = spectral, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\ggplots\\beta1_prob.tiff", units = "in", dpi = 300, width = 20, height = 17, bg="white")
+```
+
+
+```{r}
+spectral <- ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = prob), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10)
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    size = "prob",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+
+unique(df_subset$pval)
+```
+```{r}
+# Categorize p-values into two groups and create a new column for dot sizes
+df_subset$dot_size <- ifelse(df_subset$pval <= 0.01, "p < 0.01", "0.01 < p < 0.05")
+
+# Create the dot plot
+spectral <- ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = dot_size), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10)
+  ) +
+  scale_size_manual(
+    values = c("0.01 < p < 0.05" = 3, "p < 0.01" = 6), # Define custom sizes
+    name = "P-value Range" # Legend title for dot sizes
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+# Display the plot
+print(spectral)
+
+ggsave(plot = spectral, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\ggplots\\beta1_prob_custom.tiff", units = "in", dpi = 300, width = 20, height = 19, bg="white")
+```
+
+
+
+```{r}
+# Categorize p-values based on the condition
+df_subset$dot_size_try <- ifelse(
+  df_subset$Condition == "RC" & df_subset$pval > 0.05, "p > 0.05 (RC)",
+  ifelse(
+    df_subset$Condition == "RC" & df_subset$pval <= 0.05 & df_subset$pval > 0.01, "0.01 < p <= 0.05 (RC)",
+    ifelse(
+      df_subset$Condition == "RC" & df_subset$pval <= 0.01, "p <= 0.01 (RC)",
+      ifelse(
+        df_subset$Condition == "HFD" & df_subset$pval <= 0.05 & df_subset$pval > 0.01, "0.01 < p <= 0.05 (HFD)",
+        "p <= 0.01 (HFD)"
+      )
+    )
+  )
+)
+
+# Create the dot plot
+spectral_custom <- ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = dot_size_try), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10)
+  ) +
+  scale_size_manual(
+    values = c(
+      "p > 0.05 (RC)" = 2, 
+      "0.01 < p <= 0.05 (RC)" = 4, 
+      "p <= 0.01 (RC)" = 6,
+      "0.01 < p <= 0.05 (HFD)" = 4, 
+      "p <= 0.01 (HFD)" = 6
+    ),
+    name = "P-value Range"
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+# Display the plot
+print(spectral)
+
+```
+
+
+
+```{r}
+# Calculate the min and max quantiles for the `prob` variable
+#min_quantile <- quantile(df_subset$prob, probs = 0) # 0th quantile (min)
+#max_quantile <- quantile(df_subset$prob, probs = 1) # 100th quantile (max)
+
+df_subset$prob[df_subset$prob == 0] <- NA
+    df_subset$prob.original <- df_subset$prob
+    df_subset$prob <- -1/log(df_subset$prob)
+    
+    idx1 <- which(is.infinite(df_subset$prob) | df_subset$prob < 0)
+    if (sum(idx1) > 0) {
+      values.assign <- seq(max(df_subset$prob, na.rm = T)*1.1, max(df_subset$prob, na.rm = T)*1.5, length.out = length(idx1))
+      position <- sort(prob.original[idx1], index.return = TRUE)$ix
+      df_subset$prob[idx1] <- values.assign[match(1:length(idx1), position)]
+    }
+# Create the dot plot
+trial_plot <- ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = dot_size), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    #limits = c(6.615976e-22, 2.049576e-02), # Set the scale limits
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10)
+  ) +
+  scale_size_manual(
+    values = c("0.01 < p < 0.05" = 3, "p < 0.01" = 6), # Define custom sizes
+    name = "P-value Range" # Legend title for dot sizes
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+ggsave(plot = trial_plot, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\ggplots\\beta1_prob_colours.tiff", units = "in", dpi = 300, width = 20, height = 19, bg="white")
+
+
+```
+
+
+```{r}
+# Extract interaction data for NL
+df_RC <- read.csv("D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\cellchat_RC_subset_communication.csv")
+
+# Extract interaction data for LS
+df_HFD <- read.csv("D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\cellchat_HFD_subset_communication.csv")
+
+# Add a condition column to each dataset
+df_RC$Condition <- "RC"
+df_HFD$Condition <- "HFD"
+
+# Combine source and target into a single interaction label
+df_RC$Interaction <- paste(df_RC$source, "->", df_RC$target, sep = " ")
+df_HFD$Interaction <- paste(df_HFD$source, "->", df_HFD$target, sep = " ")
+
+# Combine the two datasets with their respective conditions
+df_combined <- rbind(df_RC, df_HFD)
+
+df_subset <- subset(df_combined, source == "Mm-Beta 1")
+
+# Ensure the `Condition` column is a factor for plotting order
+df_subset$Condition <- factor(df_subset$Condition, levels = c("RC", "HFD"))
+
+library(RColorBrewer)
+n.colors <- 11
+custom_colors <- colorRampPalette(brewer.pal(11, "Spectral"))(n.colors)
+
+df_subset$dot_size <- ifelse(df_subset$pval <= 0.01, "p < 0.01", "0.01 < p < 0.05")
+
+df_subset$prob[df_subset$prob == 0] <- NA
+    df_subset$prob.original <- df_subset$prob
+    df_subset$prob <- -1/log(df_subset$prob)
+    
+    idx1 <- which(is.infinite(df_subset$prob) | df_subset$prob < 0)
+    if (sum(idx1) > 0) {
+      values.assign <- seq(max(df_subset$prob, na.rm = T)*1.1, max(df_subset$prob, na.rm = T)*1.5, length.out = length(idx1))
+      position <- sort(prob.original[idx1], index.return = TRUE)$ix
+      df_subset$prob[idx1] <- values.assign[match(1:length(idx1), position)]
+    }
+
+    
+    # Create the dot plot
+trial_plot_beta1 <- ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = dot_size), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    #limits = c(6.615976e-22, 2.049576e-02), # Set the scale limits
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10)
+  ) +
+  scale_size_manual(
+    values = c("0.01 < p < 0.05" = 3, "p < 0.01" = 6), # Define custom sizes
+    name = "P-value Range" # Legend title for dot sizes
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+
+
+ggsave(plot = trial_plot_beta1, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\ggplots\\beta1_prob_final.tiff", units = "in", dpi = 300, width = 20, height = 19, bg="white")
+```
+
+
+```{r}
+
+df_subset <- subset(df_combined, source == "Mm-Gamma 2")
+
+# Ensure the `Condition` column is a factor for plotting order
+df_subset$Condition <- factor(df_subset$Condition, levels = c("RC", "HFD"))
+
+library(RColorBrewer)
+n.colors <- 11
+custom_colors <- rev(colorRampPalette(brewer.pal(11, "Spectral"))(n.colors))
+
+df_subset$dot_size <- ifelse(df_subset$pval <= 0.01, "p < 0.01", "0.01 < p < 0.05")
+
+df_subset$prob[df_subset$prob == 0] <- NA
+    df_subset$prob.original <- df_subset$prob
+    df_subset$prob <- -1/log(df_subset$prob)
+    
+    idx1 <- which(is.infinite(df_subset$prob) | df_subset$prob < 0)
+    if (sum(idx1) > 0) {
+      values.assign <- seq(max(df_subset$prob, na.rm = T)*1.1, max(df_subset$prob, na.rm = T)*1.5, length.out = length(idx1))
+      position <- sort(prob.original[idx1], index.return = TRUE)$ix
+      df_subset$prob[idx1] <- values.assign[match(1:length(idx1), position)]
+    }
+
+    
+    # Create the dot plot
+trial_plot_gamma2 <- ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = dot_size), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    #limits = c(6.615976e-22, 2.049576e-02), # Set the scale limits
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10)
+  ) +
+  scale_size_manual(
+    values = c("0.01 < p < 0.05" = 3, "p < 0.01" = 6), # Define custom sizes
+    name = "P-value Range" # Legend title for dot sizes
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+
+
+ggsave(plot = trial_plot_gamma2, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\ggplots\\gamma2_prob_final.tiff", units = "in", dpi = 300, width = 20, height = 18, bg="white")
+```
+
+
+```{r}
+gamma1_RC <- netVisual_bubble(cellchat_merged, sources.use = "Mm-Gamma 1", targets.use = c(1:10),  comparison = 1, angle.x = 45)
+```
+
+```{r}
+#Compare the major sources and targets in 2D space
+
+num.link <- sapply(object.list, function(x) {rowSums(x@net$count) + colSums(x@net$count)-diag(x@net$count)})
+weight.MinMax <- c(min(num.link), max(num.link)) # control the dot size in the different datasets
+gg <- list()
+for (i in 1:length(object.list)) {
+  gg[[i]] <- netAnalysis_signalingRole_scatter(object.list[[i]], title = names(object.list)[i], weight.MinMax = weight.MinMax, label.size = 5)
+}
+#> Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
+#> Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
+abcd <- patchwork::wrap_plots(plots = gg)
+
+ggsave(plot = abcd, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\major_source_target.tiff", units = "in", height = 6, width = 9, dpi = 300)
+```
+
+```{r}
+num.link <- sapply(object.list, function(x) {rowSums(x@net$count) + colSums(x@net$count)-diag(x@net$count)})
+weight.MinMax <- c(min(num.link), max(num.link)) # control the dot size in the different datasets
+gg <- list()
+for (i in 1:length(object.list)) {
+  gg[[i]] <- netAnalysis_signalingRole_scatter(object.list[[i]], title = names(object.list)[i], weight.MinMax = weight.MinMax, label.size = 5)
+}
+#> Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
+#> Signaling role analysis on the aggregated cell-cell communication network from all signaling pathways
+abcd <- patchwork::wrap_plots(plots = gg)
+
+ggsave(plot = abcd, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\major_source_target_size.tiff", units = "in", height = 6, width = 9, dpi = 300)
+```
+

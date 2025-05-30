@@ -1,0 +1,224 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+
+Mm.ATAC.chromvar <- readRDS("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC data Jayesh/Mm-ATAC chromVar 121222.rds")
+
+DefaultAssay(Mm.ATAC.chromvar) <- "chromvar"
+Mm.ATAC.chromvar<- SetIdent(Mm.ATAC.chromvar, value = Mm.ATAC.chromvar$detailed.states_diet)
+
+unique(Mm.ATAC.chromvar$detailed.states_diet)
+
+DE.motifs <- FindMarkers(Mm.ATAC.chromvar, logfc.threshold = 0.25, ident.1 = "Mm-Vascular endothelial_HFD", ident.2 = "Mm-Vascular endothelial_RC")
+
+DE.motifs$pct.difference <- DE.motifs$pct.1 - DE.motifs$pct.2
+DE.motifs1 <- DE.motifs[DE.motifs$avg_log2FC > 0,] 
+differential.activity <- DE.motifs1 
+
+Jaspar.meta <- readxl::read_excel("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC data Jayesh/Sheets/JASPAR metadata.xlsx")
+Jaspar.meta$...7 <- NULL
+Jaspar.meta$Logo <- NULL
+Jaspar.meta <- na.omit(Jaspar.meta)
+
+
+differential.activity <- differential.activity[which(differential.activity$p_val_adj < 0.05),]
+
+differential.activity$Name <- NA
+differential.activity$ID <- NA
+differential.activity$Species <-NA
+differential.activity$Class <- NA
+differential.activity$Family <- NA
+
+for (x in 1:length(Jaspar.meta$ID)) {
+  for (y in 1:length(rownames(differential.activity))) {
+    
+    if (Jaspar.meta$ID[x] == differential.activity$gene[y]) {
+      
+      differential.activity$ID[y] <- Jaspar.meta$ID[x]
+      differential.activity$Name[y] <- Jaspar.meta$Name[x]
+      differential.activity$Species[y] <- Jaspar.meta$Species[x]
+      differential.activity$Family[y] <- Jaspar.meta$Family[x]
+      differential.activity$Class[y] <- Jaspar.meta$Class[x]
+    }
+  }
+}
+
+#cells.use <- rownames(Mm.ATAC.integrated4@meta.data)[which(Mm.ATAC.integrated4@meta.data$cor.states1 == "Mm-Endothelial")]
+
+
+differential.activity$Motif.family <- paste0(differential.activity$gene," ", differential.activity$Family)
+differential.activity$Motif.name <- paste0(differential.activity$gene," ", differential.activity$Name)
+
+motifs.to.plot <- differential.activity %>% group_by(cluster) %>% top_n(3, pct.difference)
+motifs.to.plot <- motifs.to.plot[order(motifs.to.plot$cluster), ]
+
+motifs.to.plot <- motifs.to.plot$gene
+motifs.to.plot <- unique(motifs.to.plot)
+
+
+
+motifs.to.plot <- unique(c("MA0600.2", "MA0799.1","MA0798.2","MA1496.1","MA0639.1", "MA0843.1", "MA0761.2", "MA0062.3", "MA0764.2", "MA0598.3", "MA0050.2","MA0062.3","MA0599.1", "MA1513.1", "MA0599.1","MA0079.4"))
+motif.labels <- c()
+motif.names <- c()
+
+for (i in 1:length(motifs.to.plot)) {
+  for (j in 1:length(differential.activity$gene)) {
+if (motifs.to.plot[i]==differential.activity$gene[j]) 
+  {motif.labels[i] <- differential.activity$Motif.family[j]
+motif.names[i] <- differential.activity$Motif.name[j]
+  }    
+  }    
+}
+
+
+print(motif.labels)
+
+levels(Mm.ATAC.chromvar) <- rev(c("Mm-Alpha","Mm-Beta","Mm-Delta","Mm-Endothelial","Mm-Gamma","Mm-Immune","Mm-PSCs","Mm-Acinar"))
+
+
+d1 <- Dot.Plot <- DotPlot(Mm.ATAC.chromvar, assay = "chromvar", features = motifs.to.plot
+                    #,idents = idents.to.use
+                   
+                    # , scale.min = 0, scale.max = 100, dot.scale = 15
+                    ) +theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=8, color="black"),
+        axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6)) +   scale_x_discrete(labels= motif.names)
+
+
+
+
+
+Differential.act.Endothelial <- differential.activity[differential.activity$cluster == "Mm-Endothelial",]
+Differential.act.Endothelial.ETS <- na.omit(Differential.act.Endothelial[Differential.act.Endothelial$Family == "Ets-related",])
+ETS_related_factors <- Differential.act.Endothelial.ETS$gene[1]
+Mm.ATAC.chromvar <- MetaFeature(Mm.ATAC.chromvar, features = ETS_related_factors,meta.name = "ETS_related_factors", slot = "data", assay = "ATAC")
+
+
+
+DefaultAssay(Mm.ATAC.chromvar) <- "chromvar"
+FeaturePlot(Mm.ATAC.chromvar, features = "ETS_related_factors", label = T, cols = c("white", "red"), repel = T, pt.size = 1.5)+ggtitle("Ets-related factors")
+
+VlnPlot(Mm.ATAC.chromvar, features = ETS_related_factors)
+
+Mm.ATAC.chromvar$Ets_related_factors <- NULL
+
+ 
+
+Ets_related_factors
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+library(EnhancedVolcano)
+```
+
+
+Volcano plots for Differentially enriched motifs across subclusters  
+```{r}
+Mm.ATAC.chromvar <- readRDS("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC data Jayesh/Mm-ATAC chromVar 121222.rds")
+DefaultAssay(Mm.ATAC.chromvar) <- "chromvar"
+Mm.ATAC.chromvar<- SetIdent(Mm.ATAC.chromvar, value = Mm.ATAC.chromvar$detailed.states_diet)
+
+
+#INPUTS
+identity.1 <- "Mm-Vascular endothelial_HFD"
+identity.2 <- "Mm-Vascular endothelial_RC"
+ y.axis.limit <- c(0,5) 
+ x.axis.limit <- c(-6, 6)
+
+
+
+
+differential.activity <- FindMarkers(
+  object = Mm.ATAC.chromvar,
+  ident.1 = identity.1,
+  ident.2 =identity.2,
+  only.pos = F, logfc.threshold = 0
+
+)
+
+
+
+
+differential.activity$motif.names <- 0
+differential.activity$motifs.2 <- 0 
+Motif.names <- as.data.frame(t(as.data.frame(Mm.ATAC.chromvar@assays$ATAC@motifs@motif.names)))
+
+for (x in 1:length(rownames(Motif.names))) {
+  for (y in 1:length(rownames(differential.activity))) {
+    
+    if (rownames(Motif.names)[x] == rownames(differential.activity)[y]) {
+      differential.activity$motif.names[y] <- Motif.names$V1[x]
+      differential.activity$motifs.2[y] <- rownames(Motif.names)[x]
+    }
+  }
+}
+
+differential.activity$name.motif <- paste0(differential.activity$motif.names,"_",differential.activity$motifs.2)
+
+#    volcano_degsfiltered = differential.activity[differential.activity$p_val_adj <= 0.05,]
+    
+ volcano_degsfiltered = differential.activity
+
+    res <- volcano_degsfiltered
+    
+    colnames(res) <- c("P val", "log2FC", "pct.1", "pct.2", "P adj.", "Motif.names", "Motifs.2", "Motif_names_motifs")
+    rownames(res) <- res$Motif_names_motifs
+    
+    
+     keyvals <- ifelse(res$log2FC < -0.25 & res$`P adj.` <0.05 , 'royalblue',
+      ifelse(res$log2FC > 0.25 & res$`P adj.`<0.05, 'red',
+           ifelse(res$`P adj.`<0.05, "grey","black")))
+    
+    #keyvals[is.na(keyvals)] <- 'black'
+    names(keyvals)[keyvals == 'grey'] <- 'Stably expressed'
+    names(keyvals)[keyvals == 'red'] <- 'Upregulated'
+    names(keyvals)[keyvals == 'black'] <- "Not significant"
+    names(keyvals)[keyvals == 'royalblue'] <- 'Downregulated'
+
+    plotvolcano2 <- EnhancedVolcano(res,
+                                    lab = rownames(res),
+                                    x = 'log2FC',
+                                    y = 'P adj.', selectLab = rownames(res)[which(names(keyvals) %in% c('Upregulated','Downregulated'))],
+                                    xlab = bquote(~Log[2]~ 'fold change'),
+                                    title = paste(identity.1,"Vs", identity.2, ": DE motifs (chromvar assay) upregualted in ", identity.1),
+                                    pCutoff = 0.05,
+                                    FCcutoff = 0.25,
+                                    pointSize = 2.5,
+                                    labSize = 3,
+ylim =  y.axis.limit,
+                                    colCustom = keyvals,
+                                    colAlpha = 1,
+                                    legendPosition = 'top',
+                                    legendLabSize = 10,
+                                    legendIconSize = 5.0,
+                                    drawConnectors = TRUE,
+                                    widthConnectors = 1.0,
+                                    colConnectors = 'black',
+                                    arrowheads = F,
+                                    gridlines.major = F,
+                                    gridlines.minor = FALSE,
+                                    border = 'partial',
+                                    borderWidth = 1.5,
+                                    borderColour = 'black', max.overlaps = 7 , subtitle = " ", xlim = x.axis.limit
+    )
+    
+    plotvolcano2
+    
+    
+ggsave(plot = plotvolcano2, filename = paste0("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/",identity.1,"Vs", identity.2, "DE motifs.tiff"), device = "tiff", width = 8, height = 6, dpi = 300)
+
+```
+

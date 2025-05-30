@@ -1,0 +1,303 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+##################################################
+Saving embeddings
+
+```{r}
+HIRN_data <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/HIRN seurat processed and annotated wo juvenile.rds")
+
+levels(HIRN_data) <- c("Hs-Endocrine 1", "Hs-Endocrine 2", "Hs-Acinar", "Hs-Activated PSCs", "Hs-Quiescent PSCs", "Hs-PDCs", "Hs-Endothelial", "Hs-Immune", "Hs-Unclassified")
+
+D1 <- DimPlot(HIRN_data, label = F)+NoLegend()
+D2 <- DimPlot(HIRN_data, label = F, split.by = "condition")
+D3 <- DimPlot(HIRN_data, label = T, split.by = "condition")
+
+ggsave(plot = D1, filename = "HIRN Dimplot nolegend.tiff", device = "tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-First fig/", height = 8, width = 8)
+
+ggsave(plot = D2, filename = "HIRN Dimplot split condition unlabeled.tiff", device = "tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-First fig/", height = 8, width = 26)
+
+  ggsave(plot = D3, filename = "HIRN Dimplot split condition labeled.tiff", device = "tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-First fig/", height = 8, width = 26)
+```
+
+
+
+```{r}
+install.packages("H:/LAB 20 IIT K/monocle_2.24.0/monocle/", repos = NULL, type = "source")
+```
+
+```{r}
+levels(HIRN.seurat) <- c("Hs-Endocrine 1", "Hs-Endocrine 2", "Hs-Acinar", "Hs-Activated PSCs", "Hs-Quiescent PSCs", "Hs-PDCs", "Hs-Endothelial", "Hs-Immune", "Hs-Unclassified")
+```
+
+```{r}
+genes <- c("INS","IAPP", "RBP4", "GCG", "CHGA", "TTR", "CTRB1", "PRSS1", "CELA3A", "TIMP3", "SFRP2", "MGP", "RGS5", "ADIRF", "FABP4","MMP7", "KRT18", "KRT19","PECAM1", "GNG11", "PLVAP", "CD74", "HLA-DRA", "CD68")
+
+genes1 <- c("INS", "RBP4", "GCG", "CHGA", "TTR", "CTRB1", "PRSS1", "CELA3A", "TIMP3", "SFRP2",  "RGS5", "ADIRF","MMP7", "KRT18", "KRT19","PECAM1", "GNG11", "PLVAP", "CD74", "HLA-DRA", "CD68")
+
+
+
+VlnPlot(HIRN.seurat, features = genes1, stack = T, flip = T)+NoLegend()
+
+v1 <- VlnPlot(HIRN.seurat, features = genes1, stack = T, flip = T)+NoLegend()
+
+levels(HIRN.seurat) <- rev(levels(HIRN.seurat))
+
+D1<- DotPlot(HIRN.seurat, assay = "RNA", features = genes, scale.min = 0, scale.max = 100, dot.scale = 15) +theme(axis.text.x = element_text(size=11, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=14, color="black"),
+        axis.title = element_text(size=14), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 11), legend.text  = element_text(size=8))  
+
+
+Dim1 <- DimPlot(HIRN.seurat, label = T, repel = T)+NoLegend()
+```
+
+```{r}
+ggsave(plot = v1, filename = "VLnplot all cell markers.tiff", device = "tiff", path = "H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/HIRN plots and sheets updated/All cell types/", dpi = 600, width = 5, height = 12, units = "in")
+```
+
+```{r}
+ggsave(plot = Dim1, filename = "dimplot all cell labeled.tiff", device = "tiff", path = "H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/HIRN plots and sheets updated/All cell types/", dpi = 600, width = 8, height = 8, units = "in")
+
+ggsave(plot = D1, filename = "Dotplot all cell markers.tiff", device = "tiff", path = "H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/HIRN plots and sheets updated/All cell types/", dpi = 600, width = 10, height = 8, units = "in")
+```
+
+
+
+```{r}
+HIRN_data <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/HIRN seurat processed and annotated wo juvenile.rds")
+MmScRNA <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/CellChat/Mm.seuratSC.detailed.rds")
+
+
+
+
+unique(HIRN_cellchat_states.detailed@meta$cellchat_states.detailed)
+
+metatomerge <- data.frame(rownames(HIRN_cellchat_states.detailed@meta) ,HIRN_cellchat_states.detailed@meta$cellchat_states.detailed)
+metatomerge$barcodes <- metatomerge$rownames.HIRN_cellchat_states.detailed.meta.
+
+meta1  <- HIRN_data@meta.data 
+
+meta1$barcodes <- rownames(HIRN_data@meta.data)
+meta1$barcodes 
+meta1$sr.no <- 1:length(meta1$barcodes)
+
+merged_meta <- merge(meta1, metatomerge, by = "barcodes", all.x = T)
+merged_meta <- merged_meta %>% arrange(sr.no)
+
+merged_meta$barcodes == colnames(HIRN_data)
+
+rownames(merged_meta) <- merged_meta$barcodes
+
+HIRN_data@meta.data <- merged_meta
+
+HIRN_data <- SetIdent(HIRN_data, value = HIRN_data$HIRN_cellchat_states.detailed.meta.cellchat_states.detailed)
+
+DimPlot(HIRN_data)
+
+ncol(HIRN_data@meta.data)
+
+colnames(HIRN_data@meta.data)[43] <- "cellchat_states.detailed"
+View(HIRN_data@meta.data)
+
+#saveRDS(HIRN_data, "H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN seurat processed and annotated wo juvenile.rds")
+```
+
+
+
+
+My favourite list of databases are Gene Ontology (GO) and Reactome. 
+GO Biological Processes (GOBP)
+GO Molecular Functions (GOMF) 
+GO Cellular Components (GOCC) 
+
+```{r}
+
+h.all <- gmtPathways("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/GSEA repository/h.all.v7.5.1.symbols.gmt")
+kegg <- gmtPathways("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/GSEA repository/c2.cp.kegg.v7.5.1.symbols.gmt")
+c1 <- gmtPathways("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/GSEA repository/c1.all.v7.5.1.symbols.gmt")
+c2<- gmtPathways("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/GSEA repository/c2.all.v7.5.1.symbols.gmt")
+reactome <- gmtPathways("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/GSEA repository/c2.cp.reactome.v7.5.1.symbols.gmt")
+wikipath <- gmtPathways("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/GSEA repository/c2.cp.wikipathways.v7.5.1.symbols.gmt")
+c5 <- gmtPathways("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/GSEA repository/c5.all.v7.5.1.symbols.gmt")
+
+genesets <- c(h.all, kegg, c1, c2, reactome, wikipath, c5)
+```
+
+
+
+```{r}
+HIRN_data <- SetIdent(HIRN_data, value = HIRN_data$cellchat_states.detailed)
+cell_populations <- c(na.omit(unique(HIRN_data$cellchat_states.detailed)))
+
+markers <- FindAllMarkers(HIRN_data, logfc.threshold = 0.25, only.pos = F)
+write.csv(markers, file = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/GSEA analysis/HRIN all markers detailed states.csv")
+
+for (i in 13:length(cell_populations)) {
+
+print(cell_populations[i])
+  
+  markers_subset <- markers[markers$cluster == cell_populations[i], ]
+  write.csv(markers_subset, file = paste0("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/GSEA analysis/HIRN_",cell_populations[i], "_markers.csv"))
+    
+  
+####################################################################################################################################
+  
+  
+Markers_gsea <- markers_subset
+Markers_gsea <- Markers_gsea %>% arrange(desc(avg_log2FC))
+fold_change <- Markers_gsea$avg_log2FC
+names(fold_change) <- Markers_gsea$gene
+
+gsea_sheet <- fgsea(pathways = genesets, stats = fold_change, minSize = 5, maxSize = 5000) 
+gsea_sheet <- gsea_sheet[gsea_sheet$pval < 0.05, ]
+gsea_sheet <- gsea_sheet %>% arrange(NES)
+
+for (x in 1:length(gsea_sheet$leadingEdge)) {
+  gsea_sheet$genes[x]<- paste0(unlist(gsea_sheet$leadingEdge[x]), collapse = ", ")
+}
+
+gsea_sheet$leadingEdge <- NULL
+gsea_sheet <- unique(gsea_sheet)
+
+path_for_saving_gseaSheet <- paste0("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/GSEA analysis/HIRN_",cell_populations[i],"GSEA sheet.xlsx")
+
+writexl::write_xlsx(gsea_sheet, path = path_for_saving_gseaSheet)
+  
+
+}
+```
+
+```{r}
+HIRN_data$cellchat_states.detailed.conditon <- paste0(HIRN_data$cellchat_states.detailed,"_" ,HIRN_data$condition)
+HIRN_data <- SetIdent(HIRN_data, value = HIRN_data$cellchat_states.detailed.conditon)
+cell_populations <- c(na.omit(unique(HIRN_data$cellchat_states.detailed)))
+
+for (i in 1:length(cell_populations)) {
+
+  print(cell_populations[i])
+  
+  identity_1 <- paste0(cell_populations[i],"_Control")
+  identity_2 <- paste0(cell_populations[i],"_Obese")
+  identity_3 <- paste0(cell_populations[i], "_T2D")
+  
+#####################################################################################################################################################  
+  
+Obese_markers <- FindMarkers(HIRN_data, ident.1 = identity_2, ident.2 = identity_1, logfc.threshold = 0.25)
+Obese_markers$gene <- rownames(Obese_markers)
+
+Markers_gsea <- markers_subset
+Markers_gsea <- Markers_gsea %>% arrange(desc(avg_log2FC))
+fold_change <- Markers_gsea$avg_log2FC
+names(fold_change) <- Markers_gsea$gene
+
+gsea_sheet <- fgsea(pathways = genesets, stats = fold_change, minSize = 5, maxSize = 5000) 
+gsea_sheet <- gsea_sheet[gsea_sheet$pval < 0.05, ]
+gsea_sheet <- gsea_sheet %>% arrange(NES)
+
+for (x in 1:length(gsea_sheet$leadingEdge)) {
+  gsea_sheet$genes[x]<- paste0(unlist(gsea_sheet$leadingEdge[x]), collapse = ", ")
+}
+
+gsea_sheet$leadingEdge <- NULL
+gsea_sheet <- unique(gsea_sheet)
+
+path_for_saving_gseaSheet <- paste0("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/GSEA analysis/HIRN_",cell_populations[i]," Obese GSEA sheet.xlsx")
+writexl::write_xlsx(gsea_sheet, path = path_for_saving_gseaSheet)
+  
+  
+######################################################################################################################################################
+  
+  
+T2D_markers <- FindMarkers(HIRN_data, ident.1 = identity_3, ident.2 = identity_1, logfc.threshold = 0.25)
+T2D_markers$gene <- rownames(T2D_markers)
+
+Markers_gsea <- T2D_markers
+Markers_gsea <- Markers_gsea %>% arrange(desc(avg_log2FC))
+fold_change <- Markers_gsea$avg_log2FC
+names(fold_change) <- Markers_gsea$gene
+
+gsea_sheet <- fgsea(pathways = genesets, stats = fold_change, minSize = 5, maxSize = 5000) 
+gsea_sheet <- gsea_sheet[gsea_sheet$pval < 0.05, ]
+gsea_sheet <- gsea_sheet %>% arrange(NES)
+
+for (x in 1:length(gsea_sheet$leadingEdge)) {
+  gsea_sheet$genes[x]<- paste0(unlist(gsea_sheet$leadingEdge[x]), collapse = ", ")
+}   
+
+gsea_sheet$leadingEdge <- NULL
+gsea_sheet <- unique(gsea_sheet)
+
+path_for_saving_gseaSheet <- paste0("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/GSEA analysis/HIRN_",cell_populations[i]," T2D GSEA sheet.xlsx")
+writexl::write_xlsx(gsea_sheet, path = path_for_saving_gseaSheet)
+  
+    
+}
+
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+GSEA.genelist <- readxl::read_excel("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Alpha/GSEA alpha 2 vs alpha 1 .1.xlsx", sheet = "stringent sorting")
+GSEA.genelist <- GSEA.genelist %>% arrange(-NES)
+
+HIRN_data <- SetIdent(HIRN_data, value = HIRN_data$cellchat_states.detailed.conditon)
+levels(HIRN_data) <- levels(HIRN_data) %>% sort()
+idents_to_use <- c("Hs-Alpha 1_Control","Hs-Alpha 1_Obese","Hs-Alpha 1_T2D","Hs-Alpha 2_Control","Hs-Alpha 2_Obese","Hs-Alpha 2_T2D")
+
+#View(GSEA.genelist)
+
+pdf(file = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Alpha/Hs-Alpha 2 vs Alpha 1 GSEA plots.pdf", width = 17, height = 8)
+########################################################################################################
+for (i  in 1:length(GSEA.genelist$pathway)) {
+  
+ pathway_name <- print(GSEA.genelist$pathway[i])
+ NES <- print(signif(GSEA.genelist$NES[i]), digits = 3)
+ P.adj <- print(signif(GSEA.genelist$padj[i], digits = 3))
+ P.val <- print(signif(GSEA.genelist$pval[i], digits = 3))
+
+  genes_to_plot <- c(unlist(strsplit(unlist(GSEA.genelist$genes[i]), split = ", ")))
+
+  print(genes_to_plot)    
+
+Plot <- DotPlot(HIRN_data, assay = "RNA", features = genes_to_plot, idents = idents_to_use , scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("Cyan", "Red")) +theme(axis.text.x = element_text(size=11, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=14, color="black"),
+        axis.title = element_text(size=14), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 9), legend.text  = element_text(size=8))+ggtitle(  " ",paste0(pathway_name, "\n\nNES: ",NES, "  P_val: ",P.val,"  P.adj: ",P.adj))
+
+print(Plot)
+
+}
+
+dev.off()
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

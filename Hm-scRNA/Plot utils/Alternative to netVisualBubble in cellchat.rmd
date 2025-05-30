@@ -1,0 +1,363 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(stringr)
+library(CellChat)
+#Cellchat df.net sub-population condition 
+
+cellchat <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/CellChat/HIRN_cellchat_states.detailed.conditon.rds")
+```
+
+
+Customized code for net_visual bubble for ligand_receptor interaction in R
+```{r}
+conditions <- c("Control", "Obese", "T2D")
+
+#df.net <- subsetCommunication(cellchat)
+df.net$probability <- (df.net$prob)*100
+df.net$comm.population <- paste0(df.net$source," > ", df.net$target)
+
+#View(df.net)
+
+df.net$cond1 <-  str_count(string = df.net$comm.population, pattern =  conditions[1])
+df.net$cond2 <-  str_count(string = df.net$comm.population, pattern =  conditions[2])
+df.net$cond3 <-  str_count(string = df.net$comm.population, pattern =  conditions[3])
+
+df.net <- df.net[df.net$cond1 == 2|df.net$cond2 == 2| df.net$cond3 == 2, ]
+
+df.net$log10_pval_neg <- -log10(df.net$pval)
+
+
+#writexl::write_xlsx(df.net, "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/df.net subpopulaiton_conditon LR interaction.xlsx")
+View(df.net)
+```
+
+
+
+```{r}
+df.net <- df.net[df.net$source %in% c( "Hs-Beta 1", "Hs-Beta 2", "Hs-Beta 3", "Hs-Alpha 1", "Hs-Alpha 2", "Hs-Delta 1", "Hs-Delta 2","Hs-Gamma", "Hs-Vascular ECs", "Hs-Metabolically active ECs", "Hs-Proinflammatory ECs", "Hs-Immune regulatory ECs", "Hs-T cells","Hs-Granulocytes","Hs-Macrophages", "Hs-APCs"), ]
+
+df.net <- df.net[df.net$target %in% c( "Hs-Beta 1", "Hs-Beta 2", "Hs-Beta 3", "Hs-Alpha 1", "Hs-Alpha 2", "Hs-Delta 1", "Hs-Delta 2","Hs-Gamma", "Hs-Vascular ECs", "Hs-Metabolically active ECs", "Hs-Proinflammatory ECs", "Hs-Immune regulatory ECs", "Hs-T cells","Hs-Granulocytes","Hs-Macrophages", "Hs-APCs"), ]
+
+```
+
+
+```{r}
+
+
+
+sources_in_order <- c("Hs-Beta 1")
+targets_in_order <- c("Hs-Beta 1")
+
+
+df.net_subset <- df.net[df.net$source %in% sources_in_order|df.net$target %in% targets_in_order, ]
+
+df.net_subset<- arrange(df.net_subset, target ) 
+df.net_subset<- arrange(df.net_subset,source ) 
+
+
+dot_plot <- ggplot(df.net_subset, aes(x=comm.population, y=interaction_name_2)) +
+  geom_point(aes(size = -pval, fill = probability, scale = "none"), color= "black", shape=21) +
+  scale_size("P val", range = c(0,6)) +
+  scale_fill_gradientn(colours = as.factor(  c("#33AEFF",  "#FF8E33", "#FF4233")),
+                       guide = guide_colorbar(ticks.colour = "black",
+                                              frame.colour = "black"),
+                       name = "Comm. Prob.(%)") +
+  ylab("Cluster") + xlab("") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size=10, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=10, color="black"),
+        axis.title = element_text(size=14))
+
+
+
+dot_plot
+
+```
+
+
+#########################################################################################################################################
+
+
+
+
+
+```{r}
+df.net <- subsetCommunication(cellchat)
+
+df.net <- df.net[df.net$source %in% c( "Hs-Beta 1", "Hs-Beta 2", "Hs-Beta 3", "Hs-Alpha 1", "Hs-Alpha 2", "Hs-Delta 1", "Hs-Delta 2","Hs-Gamma", "Hs-Vascular ECs", "Hs-Metabolically active ECs", "Hs-Proinflammatory ECs", "Hs-Immune regulatory ECs", "Hs-T cells","Hs-Granulocytes","Hs-Macrophages", "Hs-APCs"), ]
+
+df.net <- df.net[df.net$target %in% c( "Hs-Beta 1", "Hs-Beta 2", "Hs-Beta 3", "Hs-Alpha 1", "Hs-Alpha 2", "Hs-Delta 1", "Hs-Delta 2","Hs-Gamma", "Hs-Vascular ECs", "Hs-Metabolically active ECs", "Hs-Proinflammatory ECs", "Hs-Immune regulatory ECs", "Hs-T cells","Hs-Granulocytes","Hs-Macrophages", "Hs-APCs"), ]
+
+
+
+df.net$probability <- (df.net$prob)*100
+df.net$comm.population <- paste0(df.net$source," > ", df.net$target)
+
+df.net_auto <- df.net[df.net$source == df.net$target, ]
+df.net_para <- df.net[df.net$source != df.net$target, ]
+```
+ factor(Species, level = level_order)
+#For autocrine signaling
+```{r}
+library(forcats)
+df.net_subset <- df.net_auto
+
+#df.net_subset <- df.net[df.net$source %in% sources_in_order|df.net$target %in% sources_in_order, ]
+sources_in_order <- c("Hs-Beta 1", "Hs-Beta 2", "Hs-Beta 3", "Hs-Alpha 1", "Hs-Alpha 2", "Hs-Delta 1", "Hs-Delta 2","Hs-Gamma", "Hs-Vascular ECs", "Hs-Metabolically active ECs", "Hs-Proinflammatory ECs", "Hs-Immune regulatory ECs", "Hs-T cells","Hs-Granulocytes","Hs-Macrophages", "Hs-APCs")
+
+# df.net_subset <- df.net_subset %>% arrange(factor(source, levels = c("Hs-Beta 1", "Hs-Beta 2", "Hs-Beta 3", "Hs-Alpha 1", "Hs-Alpha 2", "Hs-Delta 1", "Hs-Delta 2","Hs-Gamma", "Hs-Vascular ECs", "Hs-Metabolically active ECs", "Hs-Proinflammatory ECs", "Hs-Immune regulatory ECs", "Hs-T cells","Hs-Granulocytes","Hs-Macrophages", "Hs-APCs")))
+
+
+levels_for_x <- c("Hs-Beta 1", "Hs-Beta 2", "Hs-Beta 3", "Hs-Alpha 1", "Hs-Alpha 2", "Hs-Delta 1", "Hs-Delta 2","Hs-Gamma", "Hs-Vascular ECs", "Hs-Metabolically active ECs", "Hs-Proinflammatory ECs", "Hs-Immune regulatory ECs", "Hs-T cells","Hs-Granulocytes","Hs-Macrophages", "Hs-APCs")
+fct_inorder(f)
+
+
+#factor(source, levels = levels_for_x)
+dot_plot <- ggplot(df.net_subset, aes(x = factor(source, levels = levels_for_x)
+ , y=interaction_name_2)) +
+  geom_point(aes(size = -pval, fill = probability, scale = "none"), color= "black", shape=21) +
+  scale_size("P val", range = c(0,6)) +
+  scale_fill_gradientn(colours = as.factor(  c("#33AEFF",  "#FF8E33", "#FF4233")),
+                       guide = guide_colorbar(ticks.colour = "black",
+                                              frame.colour = "black"),
+                       name = "Comm. Prob.(%)") +
+  ylab("") + xlab("") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size=10, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=10, color="black"),
+        axis.title = element_text(size=14)) 
+
+
+
+
+dot_plot
+
+ggsave(plot = dot_plot, filename = "Autocrine signaling detailed states.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/",height = 11, width = 8, device = "tiff", dpi = 600)
+
+#####################################################################################
+
+
+
+
+df.net_subset <- df.net_auto[df.net_auto$source %in% c("Hs-Alpha 1", "Hs-Alpha 2", "Hs-Beta 1","Hs-Beta 2", "Hs-Delta 1", "Hs-Delta 2"), ]
+levels_for_x <- c("Hs-Beta 1","Hs-Beta 2", "Hs-Alpha 1", "Hs-Alpha 2",  "Hs-Delta 1", "Hs-Delta 2")
+#df.net_subset <- df.net[df.net$source %in% sources_in_order|df.net$target %in% sources_in_order, ]
+
+
+dot_plot <- ggplot(df.net_subset, aes(x = factor(source, levels = levels_for_x)
+ , y=interaction_name_2)) +
+  geom_point(aes(size = -pval, fill = probability, scale = "none"), color= "black", shape=21) +
+  scale_size("P val", range = c(0,6)) +
+  scale_fill_gradientn(colours = as.factor(  c("#33AEFF",  "#FF8E33", "#FF4233")),
+                       guide = guide_colorbar(ticks.colour = "black",
+                                              frame.colour = "black"),
+                       name = "Comm. Prob.(%)") +
+  ylab("") + xlab("") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size=10, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=10, color="black"),
+        axis.title = element_text(size=14)) 
+
+
+dot_plot
+
+
+
+ggsave(plot = dot_plot, filename = "Autocrine signaling detailed states endocrine.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/",height = 4, width = 6, device = "tiff", dpi = 600)
+```
+
+
+#For Paracrine signaling
+
+```{r}
+cluster<- "Hs-Delta 2"
+
+all_populations <- c("Hs-Beta 1", "Hs-Beta 2", "Hs-Beta 3", "Hs-Alpha 1", "Hs-Alpha 2", "Hs-Delta 1", "Hs-Delta 2","Hs-Gamma", "Hs-Vascular ECs", "Hs-Metabolically active ECs", "Hs-Proinflammatory ECs", "Hs-Immune regulatory ECs", "Hs-T cells","Hs-Granulocytes","Hs-Macrophages", "Hs-APCs")
+
+
+#######################################################################################################################################################
+all_populations_sub <- setdiff(all_populations, cluster)
+
+cluster_as_source <- paste0(cluster," > ", all_populations_sub)
+cluster_as_target <- paste0(all_populations_sub," > ", cluster)
+
+levels_for_x <- c(cluster_as_source, cluster_as_target)
+
+df.net_subset <- df.net_para[df.net_para$source %in% cluster|df.net_para$target %in% cluster, ]
+
+
+dot_plot <- ggplot(df.net_subset, aes(x=factor(comm.population, levels = levels_for_x), y=interaction_name_2)) +
+  geom_point(aes(size = -pval, fill = probability, scale = "none"), color= "black", shape=21) +
+  scale_size("P val", range = c(0,6)) +
+  scale_fill_gradientn(colours = as.factor(  c("#33AEFF",  "#FF8E33", "#FF4233")),
+                       guide = guide_colorbar(ticks.colour = "black",
+                                              frame.colour = "black"),
+                       name = "Comm. Prob.(%)") +
+  ylab(" ") + xlab("") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size=10, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=10, color="black"),
+        axis.title = element_text(size=14))
+
+
+dot_plot
+
+ggsave(plot = dot_plot, filename = "HIRN Delta-2 paracrine.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/",height = 7, width = 9, device = "tiff", dpi = 600)
+```
+
+
+Cellchat_detailed_condition
+#####################################################################################################################################################
+
+```{r}
+cellchat <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN_cellchat_states.detailed.conditon updated 123 JT.rds")
+
+```
+
+```{r}
+conditions <- c("Control", "Obese", "T2D")
+
+df.net <- subsetCommunication(cellchat)
+df.net$probability <- (df.net$prob)*100
+df.net$comm.population <- paste0(df.net$source," > ", df.net$target)
+
+#View(df.net)
+
+df.net$cond1 <-  str_count(string = df.net$comm.population, pattern =  conditions[1])
+df.net$cond2 <-  str_count(string = df.net$comm.population, pattern =  conditions[2])
+df.net$cond3 <-  str_count(string = df.net$comm.population, pattern =  conditions[3])
+
+df.net <- df.net[df.net$cond1 == 2|df.net$cond2 == 2| df.net$cond3 == 2, ]
+
+df.net$log10_pval_neg <- -log10(df.net$pval)
+
+df.net_auto <- na.omit(df.net[df.net$source == df.net$target, ])
+df.net_para <- na.omit(df.net[df.net$source != df.net$target, ])
+
+```
+   
+     
+```{r}
+clusters_to_consider <- c("Hs-Beta 1", "Hs-Beta 2", "Hs-Alpha 1", "Hs-Alpha 2", "Hs-Delta 1", "Hs-Delta 2")
+
+for (i in 1:length(clusters_to_consider)) {
+  
+
+cluster<- clusters_to_consider[i]
+
+all_populations <- c("Hs-Beta 1", "Hs-Beta 2", "Hs-Alpha 1", "Hs-Alpha 2", "Hs-Delta 1", "Hs-Delta 2", "Hs-Vascular ECs", "Hs-Proinflammatory ECs", "Hs-Macrophages")
+
+
+#######################################################################################################################################################
+all_populations_sub <- setdiff(all_populations, cluster)
+
+c1 <- paste0(cluster,"_Control")
+c2 <- paste0(cluster,"_Obese")
+c3 <- paste0(cluster,"_T2D")
+
+all_populations_sub_Control <- paste0(all_populations_sub, "_Control")
+all_populations_sub_Obese <- paste0(all_populations_sub, "_Obese")
+all_populations_sub_T2D <- paste0(all_populations_sub, "_T2D")
+
+cluster_as_source1 <- paste0(c1," > ", all_populations_sub_Control)
+cluster_as_source2 <- paste0(c2," > ", all_populations_sub_Obese)
+cluster_as_source3 <- paste0(c3," > ", all_populations_sub_T2D)
+
+cluster_as_target1 <- paste0(all_populations_sub_Control," > ",c1 )
+cluster_as_target2 <- paste0(all_populations_sub_Obese," > ",c2 )
+cluster_as_target3 <- paste0(all_populations_sub_T2D," > ",c3 )
+
+levels_for_x <- c(cluster_as_source1,cluster_as_target1, cluster_as_source2,cluster_as_target2,  cluster_as_source3, cluster_as_target3)
+
+
+# df.net_subset <- na.omit(df.net_para[df.net_para$source %in% c(c1, c2, c3)|df.net_para$target %in% c(c1, c2, c3), ])
+# df.net_subset <- na.omit(df.net_para[df.net_para$source %in% c(c1, c2, c3, all_populations_sub_Control, all_populations_sub_Obese, all_populations_sub_T2D)|df.net_para$target %in% c(c1, c2, c3, all_populations_sub_Control, all_populations_sub_Obese, all_populations_sub_T2D), ])
+
+df.net_subset <- na.omit(df.net_para[df.net_para$comm.population %in% c(cluster_as_source1, cluster_as_source2, cluster_as_source3, cluster_as_target1, cluster_as_target2, cluster_as_target3), ])
+
+dot_plot <- ggplot(df.net_subset, aes(x=factor(comm.population, levels = levels_for_x), y=interaction_name_2)) +
+  geom_point(aes(size = -pval, fill = probability, scale = "none"), color= "black", shape=21) +
+  scale_size("P val", range = c(0,6)) +
+  scale_fill_gradientn(colours = as.factor(  c("#33AEFF",  "#FF8E33", "#FF4233")),
+                       guide = guide_colorbar(ticks.colour = "black",
+                                              frame.colour = "black"),
+                       name = "Comm. Prob.(%)") +
+  ylab(" ") + xlab("") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size=10, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=10, color="black"),
+        axis.title = element_text(size=14))
+
+
+dot_plot
+
+ggsave(plot = dot_plot, filename = paste0("HIRN ", cluster ," paracrine_condition.tiff"), path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/paracrine signaling in condition/",height = 10, width = 15, device = "tiff", dpi = 600)
+
+
+}
+```
+
+```{r}
+# clusters_to_consider <- c("Hs-Beta 1", "Hs-Beta 2", "Hs-Alpha 1", "Hs-Alpha 2", "Hs-Delta 1", "Hs-Delta 2")
+# 
+# 
+#   
+# 
+# cluster<- clusters_to_consider[i]
+
+all_populations <- c("Hs-Beta 1", "Hs-Beta 2", "Hs-Alpha 1", "Hs-Alpha 2", "Hs-Delta 1", "Hs-Delta 2", "Hs-Vascular ECs", "Hs-Proinflammatory ECs", "Hs-Macrophages")
+
+
+#######################################################################################################################################################
+all_populations_sub <- setdiff(all_populations, cluster)
+# 
+# c1 <- paste0(cluster,"_Control")
+# c2 <- paste0(cluster,"_Obese")
+# c3 <- paste0(cluster,"_T2D")
+
+all_populations_sub_Control <- paste0(all_populations_sub, "_Control")
+all_populations_sub_Obese <- paste0(all_populations_sub, "_Obese")
+all_populations_sub_T2D <- paste0(all_populations_sub, "_T2D")
+# 
+# cluster_as_source1 <- paste0(c1," > ", all_populations_sub_Control)
+# cluster_as_source2 <- paste0(c2," > ", all_populations_sub_Obese)
+# cluster_as_source3 <- paste0(c3," > ", all_populations_sub_T2D)
+# 
+# cluster_as_target1 <- paste0(all_populations_sub_Control," > ",c1 )
+# cluster_as_target2 <- paste0(all_populations_sub_Obese," > ",c2 )
+# cluster_as_target3 <- paste0(all_populations_sub_T2D," > ",c3 )
+
+levels_for_x <- c(all_populations_sub_Control, all_populations_sub_Obese, all_populations_sub_T2D)
+
+
+# df.net_subset <- na.omit(df.net_para[df.net_para$source %in% c(c1, c2, c3)|df.net_para$target %in% c(c1, c2, c3), ])
+# df.net_subset <- na.omit(df.net_para[df.net_para$source %in% c(c1, c2, c3, all_populations_sub_Control, all_populations_sub_Obese, all_populations_sub_T2D)|df.net_para$target %in% c(c1, c2, c3, all_populations_sub_Control, all_populations_sub_Obese, all_populations_sub_T2D), ])
+
+df.net_subset <- na.omit(df.net_auto[df.net_auto$source %in% c(all_populations_sub_Control, all_populations_sub_Obese, all_populations_sub_T2D), ])
+
+
+dot_plot <- ggplot(df.net_subset, aes(x=factor(source, levels = levels_for_x), y=interaction_name_2)) +
+  geom_point(aes(size = -pval, fill = probability, scale = "none"), color= "black", shape=21) +
+  scale_size("P val", range = c(0,6)) +
+  scale_fill_gradientn(colours = as.factor(  c("#33AEFF",  "#FF8E33", "#FF4233")),
+                       guide = guide_colorbar(ticks.colour = "black",
+                                              frame.colour = "black"),
+                       name = "Comm. Prob.(%)") +
+  ylab(" ") + xlab("") +
+  theme_bw() +
+  theme(axis.text.x = element_text(size=10, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=10, color="black"),
+        axis.title = element_text(size=14))
+
+
+dot_plot
+
+ggsave(plot = dot_plot, filename = paste0("HIRN all autocrine_condition.tiff"), path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Cellchat/paracrine signaling in condition/",height = 12, width = 10, device = "tiff", dpi = 600)
+
+
+```
+

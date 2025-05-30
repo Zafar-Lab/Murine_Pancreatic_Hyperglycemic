@@ -1,0 +1,182 @@
+---
+title: "Motif enrichment across diets"
+output: html_notebook
+---
+
+```{r}
+library(dplyr)
+library(patchwork)
+library(GenomicRanges)
+library(Signac)
+library(Seurat)
+library(ggplot2)
+library(BSgenome.Mmusculus.UCSC.mm10)
+library(GenomeInfoDb)
+#library(EnsDb.Mmusculus.v79)
+library(chromVAR)
+```
+```{r}
+library(Signac)
+library(Seurat)
+library(JASPAR2020)
+library(TFBSTools)
+library(BSgenome.Mmusculus.UCSC.mm10)
+library(patchwork)
+set.seed(1234)
+```
+
+```{r}
+
+
+Mm.ATAC.integrated1 <- readRDS("F:/Mm.ATAC data Jayesh/Mm.ATAC seurat integration.rds")
+
+pfm <- getMatrixSet(
+  x = JASPAR2020,
+  opts = list(collection = "CORE", tax_group = 'vertebrates', all_versions = FALSE)
+)
+
+DefaultAssay(Mm.ATAC.integrated1) <- "ATAC"
+
+
+#the genome you mapped the data to has the scaffolds named differently to the BSgenome. The scaffolds aren't that useful for analysis, so you could solve this by removing peaks that are on scaffolds. 
+
+main.chroms <- standardChromosomes(BSgenome.Mmusculus.UCSC.mm10)
+keep.peaks <- as.logical(seqnames(granges(Mm.ATAC.integrated1)) %in% main.chroms)
+Mm.ATAC.integrated2 <- Mm.ATAC.integrated1[keep.peaks, ]
+
+Mm.ATAC.integrated2 <- RunTFIDF(Mm.ATAC.integrated2)
+
+
+# add motif information
+
+Mm.ATAC.integrated2 <- AddMotifs(
+  object = Mm.ATAC.integrated2,
+  genome = BSgenome.Mmusculus.UCSC.mm10,
+  pfm = pfm
+)
+
+Mm.ATAC.integrated2 <- RunChromVAR(object = Mm.ATAC.integrated2, genome = BSgenome.Mmusculus.UCSC.mm10)
+
+
+```
+
+```{r}
+
+DefaultAssay(Mm.ATAC.chromvar) <- "chromvar"
+Mm.ATAC.chromvar<- SetIdent(Mm.ATAC.chromvar, value = Mm.ATAC.chromvar$cor.states1)
+DE.motifs <- FindAllMarkers(Mm.ATAC.chromvar, logfc.threshold = 1, min.pct = 0.3)
+
+DE.motifs$pct.difference <- DE.motifs$pct.1 - DE.motifs$pct.2
+DE.motifs1 <- DE.motifs[DE.motifs$avg_log2FC > 0,] 
+differential.activity <- DE.motifs1 
+
+Jaspar.meta <- readxl::read_excel("F:/Mm.ATAC data Jayesh/Sheets/JASPAR metadata.xlsx")
+Jaspar.meta$...7 <- NULL
+Jaspar.meta$Logo <- NULL
+Jaspar.meta <- na.omit(Jaspar.meta)
+
+
+differential.activity <- differential.activity[which(differential.activity$p_val_adj < 0.05),]
+
+differential.activity$Name <- NA
+differential.activity$ID <- NA
+differential.activity$Species <-NA
+differential.activity$Class <- NA
+differential.activity$Family <- NA
+
+for (x in 1:length(Jaspar.meta$ID)) {
+  for (y in 1:length(rownames(differential.activity))) {
+    
+    if (Jaspar.meta$ID[x] == differential.activity$gene[y]) {
+      
+      differential.activity$ID[y] <- Jaspar.meta$ID[x]
+      differential.activity$Name[y] <- Jaspar.meta$Name[x]
+      differential.activity$Species[y] <- Jaspar.meta$Species[x]
+      differential.activity$Family[y] <- Jaspar.meta$Family[x]
+      differential.activity$Class[y] <- Jaspar.meta$Class[x]
+    }
+  }
+}
+
+#cells.use <- rownames(Mm.ATAC.integrated4@meta.data)[which(Mm.ATAC.integrated4@meta.data$cor.states1 == "Mm-Endothelial")]
+
+
+differential.activity$Motif.family <- paste0(differential.activity$gene," ", differential.activity$Family)
+differential.activity$Motif.name <- paste0(differential.activity$gene," ", differential.activity$Name)
+
+motifs.to.plot <- differential.activity %>% group_by(cluster) %>% top_n(3, pct.difference)
+motifs.to.plot <- motifs.to.plot[order(motifs.to.plot$cluster), ]
+
+motifs.to.plot <- motifs.to.plot$gene
+motifs.to.plot <- unique(motifs.to.plot)
+
+
+
+motifs.to.plot <- unique(c("MA0600.2", "MA0799.1","MA0798.2","MA1496.1","MA0639.1", "MA0843.1", "MA0761.2", "MA0062.3", "MA0764.2", "MA0598.3", "MA0050.2","MA0062.3","MA0599.1", "MA1513.1", "MA0599.1","MA0079.4"))
+
+motif.labels <- c()
+motif.names <- c()
+
+for (i in 1:length(motifs.to.plot)) {
+  for (j in 1:length(differential.activity$gene)) {
+if (motifs.to.plot[i]==differential.activity$gene[j]) 
+  {motif.labels[i] <- differential.activity$Motif.family[j]
+motif.names[i] <- differential.activity$Motif.name[j]
+  }    
+  }    
+}
+
+
+print(motif.labels)
+
+levels(Mm.ATAC.chromvar) <- rev(c("Mm-Alpha","Mm-Beta","Mm-Delta","Mm-Endothelial","Mm-Gamma","Mm-Immune","Mm-PSCs","Mm-Acinar"))
+
+
+d1 <- Dot.Plot <- DotPlot(Mm.ATAC.chromvar, assay = "chromvar", features = motifs.to.plot
+                    #,idents = idents.to.use
+                   
+                    # , scale.min = 0, scale.max = 100, dot.scale = 15
+                    ) +theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=8, color="black"),
+        axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6)) +   scale_x_discrete(labels= motif.names)
+
+
+
+
+
+
+Differential.act.Endothelial <- differential.activity[differential.activity$cluster == "Mm-Endothelial",]
+Differential.act.Endothelial.ETS <- na.omit(Differential.act.Endothelial[Differential.act.Endothelial$Family == "Ets-related",])
+ETS_related_factors <- Differential.act.Endothelial.ETS$gene[1]
+Mm.ATAC.chromvar <- MetaFeature(Mm.ATAC.chromvar, features = ETS_related_factors,meta.name = "ETS_related_factors", slot = "data", assay = "ATAC")
+
+
+
+DefaultAssay(Mm.ATAC.chromvar) <- "chromvar"
+FeaturePlot(Mm.ATAC.chromvar, features = "ETS_related_factors", label = T, cols = c("white", "red"), repel = T, pt.size = 1.5)+ggtitle("Ets-related factors")
+
+VlnPlot(Mm.ATAC.chromvar, features = ETS_related_factors)
+
+Mm.ATAC.chromvar$Ets_related_factors <- NULL
+
+ 
+
+Ets_related_factors
+
+
+```
+
+
+```{r}
+RFX.related.factors <- c("MA0600.2", "MA0799.1" 
+                         ,"MA0798.2", "MA0510.2", "MA1554.1", "MA0509.2")
+
+
+
+FeaturePlot(Mm.ATAC.chromvar, features = "RFX.related.factors", label = T, cols = c("white", "red"), repel = T, pt.size = 1.5)+ggtitle("BAFT1")
+
+AddChromatinModule(object = )
+
+```
+
+

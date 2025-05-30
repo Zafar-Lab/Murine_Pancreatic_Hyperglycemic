@@ -1,0 +1,546 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+# Get unique interactions for each condition
+interaction_by_condition <- split(df_combined$interaction_name_2, df_combined$Condition)
+
+# Find interactions specific to RC
+specific_to_RC <- setdiff(interaction_by_condition$RC, interaction_by_condition$HFD)
+
+# Find interactions specific to HFD
+specific_to_HFD <- setdiff(interaction_by_condition$HFD, interaction_by_condition$RC)
+
+# Subset the original data for these interactions
+df_specific_to_RC <- subset(df_combined, interaction_name_2 %in% specific_to_RC & Condition == "RC")
+df_specific_to_HFD <- subset(df_combined, interaction_name_2 %in% specific_to_HFD & Condition == "HFD")
+
+# Combine unique interactions from RC and HFD into one dataset
+df_unique_interactions <- rbind(df_specific_to_RC, df_specific_to_HFD)
+
+df_subset <- subset(df_unique_interactions, source == "Mm-Beta 1")
+
+# Ensure the `Condition` column is a factor with proper levels for plotting order
+df_subset$Condition <- factor(df_subset$Condition, levels = c("RC", "HFD"))
+
+
+n.colors <- 11
+custom_colors <- rev(colorRampPalette(brewer.pal(11, "Spectral"))(n.colors))
+
+df_subset$dot_size <- ifelse(df_subset$pval <= 0.01, "p < 0.01", "0.01 < p < 0.05")
+
+df_subset$prob[df_subset$prob == 0] <- NA
+    df_subset$prob.original <- df_subset$prob
+    df_subset$prob <- -1/log(df_subset$prob)
+    
+    idx1 <- which(is.infinite(df_subset$prob) | df_subset$prob < 0)
+    if (sum(idx1) > 0) {
+      values.assign <- seq(max(df_subset$prob, na.rm = T)*1.1, max(df_subset$prob, na.rm = T)*1.5, length.out = length(idx1))
+      position <- sort(prob.original[idx1], index.return = TRUE)$ix
+      df_subset$prob[idx1] <- values.assign[match(1:length(idx1), position)]
+    }
+
+    
+    # Create the dot plot
+abcd <- ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = dot_size), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    #limits = c(0,0.2), # Set the scale limits
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10)
+  ) +
+  scale_size_manual(
+    values = c("0.01 < p < 0.05" = 3, "p < 0.01" = 6), # Define custom sizes
+    name = "P-value Range" # Legend title for dot sizes
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+
+
+ggsave(plot = abcd, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\ggplots\\beta1_specific_try.tiff", units = "in", dpi = 300, width = 20, height = 15, bg="white")
+```
+
+
+
+```{r}
+df_try <- df_combined
+df_try$dot_size <- ifelse(df_try$pval <= 0.01, "p < 0.01", "0.01 < p < 0.05")
+
+df_try$prob[df_try$prob == 0] <- NA
+    df_try$prob.original <- df_try$prob
+    df_try$prob <- -1/log(df_try$prob)
+    
+    idx1 <- which(is.infinite(df_try$prob) | df_try$prob < 0)
+    if (sum(idx1) > 0) {
+      values.assign <- seq(max(df_try$prob, na.rm = T)*1.1, max(df_try$prob, na.rm = T)*1.5, length.out = length(idx1))
+      position <- sort(prob.original[idx1], index.return = TRUE)$ix
+      df_try$prob[idx1] <- values.assign[match(1:length(idx1), position)]
+    }
+    
+
+    
+# Get unique interactions for each condition
+interaction_by_condition <- split(df_try$interaction_name_2, df_try$Condition)
+
+# Find interactions specific to RC
+specific_to_RC <- setdiff(interaction_by_condition$RC, interaction_by_condition$HFD)
+
+# Find interactions specific to HFD
+specific_to_HFD <- setdiff(interaction_by_condition$HFD, interaction_by_condition$RC)
+
+# Subset the original data for these interactions
+df_specific_to_RC <- subset(df_try, interaction_name_2 %in% specific_to_RC & Condition == "RC")
+df_specific_to_HFD <- subset(df_try, interaction_name_2 %in% specific_to_HFD & Condition == "HFD")
+
+# Combine unique interactions from RC and HFD into one dataset
+df_unique_interactions <- rbind(df_specific_to_RC, df_specific_to_HFD)
+
+df_subset <- subset(df_unique_interactions, source == "Mm-Beta 1")
+
+# Ensure the `Condition` column is a factor with proper levels for plotting order
+df_subset$Condition <- factor(df_subset$Condition, levels = c("RC", "HFD"))
+
+
+n.colors <- 11
+custom_colors <- rev(colorRampPalette(brewer.pal(11, "Spectral"))(n.colors))
+
+
+efgh <- ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = dot_size), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    #limits = c(0,0.2), # Set the scale limits
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10)
+  ) +
+  scale_size_manual(
+    values = c("0.01 < p < 0.05" = 3, "p < 0.01" = 6), # Define custom sizes
+    name = "P-value Range" # Legend title for dot sizes
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    title = "Dot Plot of Interactions by Condition"
+  )        
+```
+
+
+```{r}
+#efgh <- ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = dot_size), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    limits = c(0, 0.2), # Set the scale limits
+    breaks = seq(0, 0.2, by = 0.05), # Define the breaks
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10)
+  ) +
+  scale_size_manual(
+    values = c("0.01 < p < 0.05" = 3, "p < 0.01" = 6), # Define custom sizes
+    name = "P-value Range" # Legend title for dot sizes
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+```
+
+
+```{r}
+df_subset <- subset(df_unique_interactions, source == "Mm-Beta 3")
+
+# Ensure the `Condition` column is a factor with proper levels for plotting order
+df_subset$Condition <- factor(df_subset$Condition, levels = c("RC", "HFD"))
+
+
+# Define the color palette
+n.colors <- 11
+custom_colors <- rev(colorRampPalette(brewer.pal(11, "Spectral"))(n.colors))
+
+efgh_beta3 <- ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = dot_size), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    limits = c(0.02, 0.2), # Set the scale limits
+    breaks = seq(0.02, 0.2, by = 0.05), # Define the breaks
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10) # Adjust colorbar size
+  ) +
+  scale_size_manual(
+    values = c("0.01 < p < 0.05" = 3, "p < 0.01" = 6), # Define custom sizes
+    name = "P-value Range" # Legend title for dot sizes
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+
+ggsave(plot = efgh, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\ggplots\\beta1_specific_RC_HFD.tiff", units = "in", dpi = 300, width = 20, height = 15, bg="white")
+```
+
+
+```{r}
+df_subset <- subset(df_combined, source == "Mm-Alpha 2")
+
+# Ensure the `Condition` column is a factor for plotting order
+df_subset$Condition <- factor(df_subset$Condition, levels = c("RC", "HFD"))
+
+library(RColorBrewer)
+n.colors <- 11
+custom_colors <- rev(colorRampPalette(brewer.pal(11, "Spectral"))(n.colors))
+
+df_subset$dot_size <- ifelse(df_subset$pval <= 0.01, "p < 0.01", "0.01 < p < 0.05")
+
+df_subset$prob[df_subset$prob == 0] <- NA
+    df_subset$prob.original <- df_subset$prob
+    df_subset$prob <- -1/log(df_subset$prob)
+    
+    idx1 <- which(is.infinite(df_subset$prob) | df_subset$prob < 0)
+    if (sum(idx1) > 0) {
+      values.assign <- seq(max(df_subset$prob, na.rm = T)*1.1, max(df_subset$prob, na.rm = T)*1.5, length.out = length(idx1))
+      position <- sort(prob.original[idx1], index.return = TRUE)$ix
+      df_subset$prob[idx1] <- values.assign[match(1:length(idx1), position)]
+    }
+
+
+# Get unique interactions for each condition
+interaction_by_condition <- split(df_subset$interaction_name_2, df_subset$Condition)
+
+# Find interactions specific to RC
+specific_to_RC <- setdiff(interaction_by_condition$RC, interaction_by_condition$HFD)
+
+# Find interactions specific to HFD
+specific_to_HFD <- setdiff(interaction_by_condition$HFD, interaction_by_condition$RC)
+
+# Subset the original data for these interactions
+df_specific_to_RC <- subset(df_subset, interaction_name_2 %in% specific_to_RC & Condition == "RC")
+df_specific_to_HFD <- subset(df_subset, interaction_name_2 %in% specific_to_HFD & Condition == "HFD")
+
+# Combine unique interactions from RC and HFD into one dataset
+df_unique_interactions <- rbind(df_specific_to_RC, df_specific_to_HFD)
+
+
+#Changed color bar    
+trial_plot_alpha2 <- ggplot(df_unique_interactions, aes(x = Interaction, y = interaction_name_2, fill = prob))+
+  geom_point(aes(size = dot_size), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    #limits = c(6.615976e-22, 2.049576e-02), # Set the scale limits
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10)
+  ) +
+  scale_size_manual(
+    values = c("0.01 < p < 0.05" = 3, "p < 0.01" = 6), # Define custom sizes
+    name = "P-value Range" # Legend title for dot sizes
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+ggsave(plot = trial_plot_alpha2, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\ggplots\\alpha2_specific_changed_colorbar.tiff", units = "in", dpi = 300, width = 20, height = 18, bg="white")
+
+
+#Same color bar- by setting the limits and breaks
+delta2_specific <- ggplot(df_unique_interactions, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = dot_size), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    limits = c(0.02, 0.25), # Set the scale limits
+    breaks = seq(0.02, 0.25, by = 0.05), # Define the breaks 
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10)
+  ) +
+  scale_size_manual(
+    values = c("0.01 < p < 0.05" = 3, "p < 0.01" = 6), # Define custom sizes
+    name = "P-value Range" # Legend title for dot sizes
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+
+
+ggsave(plot = delta2_specific, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\ggplots\\delta2_specific_same_colorbar.tiff", units = "in", dpi = 300, width = 20, height = 15, bg="white")
+
+```
+
+
+```{r}
+min(df_unique_interactions$prob) #0.02272782 for beta1
+max(df_unique_interactions$prob) #0.1228527 for beta1
+
+
+min(df_unique_interactions$prob) #0.03840913 for beta2
+max(df_unique_interactions$prob) #0.1577417 for beta2
+```
+```{r}
+object.list <- list(RC = cellchat_RC, HFD = cellchat_HFD)
+
+pathways.show <- c("SOMATOSTATIN") 
+par(mfrow = c(1,2), xpd=TRUE)
+ht <- list()
+for (i in 1:length(object.list)) {
+  ht[[i]] <- netVisual_heatmap(object.list[[i]], signaling = pathways.show, color.heatmap = "Reds",title.name = paste(pathways.show, "signaling ",names(object.list)[i]))
+}
+
+sst_heatmap <- ComplexHeatmap::draw(ht[[1]] + ht[[2]], ht_gap = unit(0.5, "cm"))
+
+ggsave(plot = insulin_heatmap, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endocrine\\ggplots\\insulin_heatmap.tiff", units = "in", dpi = 300, width = 10, height = 15)
+
+
+gipr <- netVisual_heatmap(cellchat_RC, signaling = "GIPR", color.heatmap = "Reds")
+mhc <- netVisual_heatmap(cellchat_RC, signaling = "MHC-I", color.heatmap = "Reds")
+notch <- netVisual_heatmap(cellchat_RC, signaling = "NOTCH", color.heatmap = "Reds")
+tgfb <- netVisual_heatmap(cellchat_RC, signaling = "TGFb", color.heatmap = "Reds")
+
+
+app <- netVisual_heatmap(cellchat_HFD, signaling = "APP", color.heatmap = "Reds")
+pdgf <- netVisual_heatmap(cellchat_HFD, signaling = "PDGF", color.heatmap = "Reds")
+hspg <- netVisual_heatmap(cellchat_HFD, signaling = "HSPG", color.heatmap = "Reds")
+ptn <- netVisual_heatmap(cellchat_HFD, signaling = "PTN", color.heatmap = "Reds")
+```
+
+
+```{r}
+mhc1 <- netVisual_heatmap(combined_RC, signaling = "MHC-I", color.heatmap = "Reds")
+mhc2 <- netVisual_heatmap(combined_RC, signaling = "MHC-II", color.heatmap = "Reds")
+npy <- netVisual_heatmap(combined_RC, signaling = "NPY", color.heatmap = "Reds")
+il1 <- netVisual_heatmap(combined_RC, signaling = "IL1", color.heatmap = "Reds")
+
+periostin <- netVisual_heatmap(combined_HFD, signaling = "PERIOSTIN", color.heatmap = "Reds")
+```
+
+```{r}
+object.list <- list(RC = combined_RC, HFD = combined_HFD)
+
+pathways.show <- c("INSULIN") 
+par(mfrow = c(1,2), xpd=TRUE)
+ht <- list()
+for (i in 1:length(object.list)) {
+  ht[[i]] <- netVisual_heatmap(object.list[[i]], signaling = pathways.show, color.heatmap = "Reds",title.name = paste(pathways.show, "signaling ",names(object.list)[i]))
+}
+
+insulin_heatmap <- ComplexHeatmap::draw(ht[[1]] + ht[[2]], ht_gap = unit(0.5, "cm"))
+```
+```{r}
+#Endocrine and non-endocrine
+
+combined_df_RC <- read.csv("D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\cellchat_RC_subset_communication.csv")
+
+combined_df_HFD <- read.csv("D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\cellchat_HFD_subset_communication.csv")
+
+# Add a condition column to each dataset
+combined_df_RC$Condition <- "RC"
+combined_df_HFD$Condition <- "HFD"
+
+# Combine source and target into a single interaction label
+combined_df_RC$Interaction <- paste(combined_df_RC$source, "->", combined_df_RC$target, sep = " ")
+combined_df_HFD$Interaction <- paste(combined_df_HFD$source, "->", combined_df_HFD$target, sep = " ")
+
+# Combine the two datasets with their respective conditions
+combined_df_merged <- rbind(combined_df_RC, combined_df_HFD)
+```
+
+
+```{r}
+df_subset <- subset(combined_df_merged, source == "Mm-Gamma 2")
+
+# Ensure the `Condition` column is a factor for plotting order
+df_subset$Condition <- factor(df_subset$Condition, levels = c("RC", "HFD"))
+
+library(RColorBrewer)
+n.colors <- 11
+custom_colors <- rev(colorRampPalette(brewer.pal(11, "Spectral"))(n.colors))
+
+df_subset$dot_size <- ifelse(df_subset$pval <= 0.01, "p < 0.01", "0.01 < p < 0.05")
+
+df_subset$prob[df_subset$prob == 0] <- NA
+    df_subset$prob.original <- df_subset$prob
+    df_subset$prob <- -1/log(df_subset$prob)
+    
+    idx1 <- which(is.infinite(df_subset$prob) | df_subset$prob < 0)
+    if (sum(idx1) > 0) {
+      values.assign <- seq(max(df_subset$prob, na.rm = T)*1.1, max(df_subset$prob, na.rm = T)*1.5, length.out = length(idx1))
+      position <- sort(prob.original[idx1], index.return = TRUE)$ix
+      df_subset$prob[idx1] <- values.assign[match(1:length(idx1), position)]
+    }
+
+    
+# Create the dot plot
+gamma2_plot <- ggplot(df_subset, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = dot_size), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    #limits = c(6.615976e-22, 2.049576e-02), # Set the scale limits
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10)
+  ) +
+  scale_size_manual(
+    values = c("0.01 < p < 0.05" = 3, "p < 0.01" = 6), # Define custom sizes
+    name = "P-value Range" # Legend title for dot sizes
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+
+
+ggsave(plot = gamma2_plot, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\heatmaps\\gamma2_plot.tiff", units = "in", dpi = 300, width = 23, height = 28, bg="white")
+```
+
+
+```{r}
+# Get unique interactions for each condition
+interaction_by_condition <- split(df_subset$interaction_name_2, df_subset$Condition)
+
+# Find interactions specific to RC
+specific_to_RC <- setdiff(interaction_by_condition$RC, interaction_by_condition$HFD)
+
+# Find interactions specific to HFD
+specific_to_HFD <- setdiff(interaction_by_condition$HFD, interaction_by_condition$RC)
+
+# Subset the original data for these interactions
+df_specific_to_RC <- subset(df_subset, interaction_name_2 %in% specific_to_RC & Condition == "RC")
+df_specific_to_HFD <- subset(df_subset, interaction_name_2 %in% specific_to_HFD & Condition == "HFD")
+
+# Combine unique interactions from RC and HFD into one dataset
+df_unique_interactions <- rbind(df_specific_to_RC, df_specific_to_HFD)
+
+
+#Changed color bar    
+trial_plot_gamma2 <- ggplot(df_unique_interactions, aes(x = Interaction, y = interaction_name_2, fill = prob))+
+  geom_point(aes(size = dot_size), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    #limits = c(6.615976e-22, 2.049576e-02), # Set the scale limits
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10)
+  ) +
+  scale_size_manual(
+    values = c("0.01 < p < 0.05" = 3, "p < 0.01" = 6), # Define custom sizes
+    name = "P-value Range" # Legend title for dot sizes
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+ggsave(plot = trial_plot_gamma2, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\heatmaps\\gamma2_specific_changed_colorbar.tiff", units = "in", dpi = 300, width = 20, height = 18, bg="white")
+
+
+#Same color bar- by setting the limits and breaks
+gamma2_specific <- ggplot(df_unique_interactions, aes(x = Interaction, y = interaction_name_2, fill = prob)) +
+  geom_point(aes(size = dot_size), shape = 21) + 
+  scale_fill_gradientn(
+    colors = custom_colors,
+    limits = c(0.02, 0.3), # Set the scale limits
+    breaks = seq(0.02, 0.3, by = 0.05), # Define the breaks 
+    name = "Commun. Prob.",
+    guide = guide_colorbar(barwidth = 1, barheight = 10)
+  ) +
+  scale_size_manual(
+    values = c("0.01 < p < 0.05" = 3, "p < 0.01" = 6), # Define custom sizes
+    name = "P-value Range" # Legend title for dot sizes
+  ) +
+  facet_wrap(~Condition, scales = "free_x", ncol = 2) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, color = "black"),
+    axis.text.y = element_text(color = "black"),
+    strip.text = element_text(size = 14, face = "bold", color = "black"),
+    panel.grid.major = element_line(color = "gray90")
+  ) +
+  labs(
+    x = "Interaction",
+    y = "Interaction Name 2",
+    title = "Dot Plot of Interactions by Condition"
+  )
+
+
+
+ggsave(plot = gamma2_specific, filename = "D:\\CellChat_simran\\Redo_analysis_cellchat\\Endo_non_endo\\heatmaps\\gamma2_specific_same_colorbar.tiff", units = "in", dpi = 300, width = 20, height = 23, bg="white")
+
+```
+

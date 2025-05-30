@@ -1,0 +1,136 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+Mm.ATAC <- readRDS("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC working RDS/Mm-ATAC seurat 121222.rds")
+DefaultAssay(Mm.ATAC) <- "ATAC"
+Mm.ATAC<- SetIdent(Mm.ATAC, value = Mm.ATAC$cor.states1_scran_norm)
+DimPlot(Mm.ATAC)
+
+```
+
+```{r}
+
+#marker_genes <- c("Gcg", "Ins1", "Ins2", "Sst", "Ppy", "Pyy", "Cd74", "Plvap", "Rgs5", "Krt19")
+
+Da_peaks <- FindAllMarkers(Mm.ATAC, logfc.threshold = 0.25)
+Da_peaks$query_region <- rownames(Da_peaks)
+
+closest_genes_all <- ClosestFeature(Mm.ATAC, regions = Da_peaks$query_region)
+Da_peaks = merge(Da_peaks, closest_genes_all, by = "query_region", all = T)
+
+Da_peaks<- unique(Da_peaks)
+View(Da_peaks)
+
+marker_genes <- c("Gcg", "Ins1", "Ins2", "Sst", "Ppy", "Pyy", "Cd74", "Plvap", "Rgs5", "Krt19", "Cd68", "Cd47")
+
+Da_peaks1 <- Da_peaks[Da_peaks$gene_name %in% marker_genes & Da_peaks$avg_log2FC > 0, ]
+Da_peaks2 <- Da_peaks1[Da_peaks1$distance == 0,]
+
+Da_peaks3 <- Da_peaks[Da_peaks$distance == 0, ]
+Da_peaks3 <- na.omit(Da_peaks3[Da_peaks3$type != "gap", ])
+
+writexl::write_xlsx(Da_peaks2, "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Mm.ATAC markers sorted.xlsx")
+writexl::write_xlsx(Da_peaks3, "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Mm.ATAC Findallmarkers.xlsx")
+
+
+View(Da_peaks2)
+
+
+
+```
+
+```{r}
+Da_peaks2 <- readxl::read_excel("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Mm.ATAC markers sorted.xlsx")
+pdf(file = paste0("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Marker_peakplots.pdf"), width = 5, height = 8)
+
+levels(Mm.ATAC) <- c("Mm-Alpha","Mm-Beta","Mm-Delta","Mm-Gamma","Mm-Endothelial","Mm-Immune","Mm-PSCs","Mm-Acinar")
+levels(Mm.ATAC)
+  
+DefaultAssay(Mm.ATAC) <- "ATAC"
+
+Peak_plot <- list()
+  for (i in 1:length(Da_peaks2$query_region)) {
+
+ranges.show <- StringToGRanges(Da_peaks2$query_region[i])
+ranges.show$color <- "yellow" 
+    
+    Peak_plot[[i]] <- CoveragePlot(object = Mm.ATAC,
+  region = Da_peaks2$query_region[i],
+  extend.upstream = 100,
+  extend.downstream = 100, peaks = T,
+  links = F, heights = 10, 
+  ymax = 38,
+  region.highlight = ranges.show
+  )+patchwork::plot_annotation(title = Da_peaks2$gene_name[i], subtitle = paste0(Da_peaks2$query_region[i]," ",Da_peaks2$type[i]))
+#     directory <- paste0("G:/Mm.ATAC peak plots/",cluster.info,"/",pathway.name,"/")
+#     dir.create(directory)
+ggsave(plot = Peak_plot[[i]], filename = paste0("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/",Da_peaks2$gene_name[i],".jpeg"), device = "jpeg", width = 3, height = 6, dpi = 300)
+
+ggsave(plot = Peak_plot[[i]], filename = paste0("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/",Da_peaks2$gene_name[i],".tiff"), device = "jpeg", width = 3, height = 6, dpi = 300)
+print(Peak_plot[[i]])
+
+  }
+
+dev.off()
+
+
+
+```
+
+
+```{r}
+Mm.ATAC <- SetIdent(Mm.ATAC, value = Mm.ATAC$predicted.cellstates.scran_norm)
+
+Mm.Delta_markers <- FindMarkers(Mm.ATAC, ident.1 = "Mm-Delta 1", ident.2 = "Mm-Delta 2", logfc.threshold = 0.25)
+
+Mm.Delta_markers$query_region <- rownames(Mm.Delta_markers)
+
+closest_genes_all <- ClosestFeature(Mm.ATAC, regions = Mm.Delta_markers$query_region)
+Da_peaks = merge(Mm.Delta_markers, closest_genes_all, by = "query_region", all = T)
+Da_peaks<- unique(Da_peaks)
+
+Da_peaks <- Da_peaks[Da_peaks$distance == 0, ]
+Da_peaks <- na.omit(Da_peaks[Da_peaks$type != "gap", ])
+
+View(Da_peaks)
+```
+################################################################################################################################
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

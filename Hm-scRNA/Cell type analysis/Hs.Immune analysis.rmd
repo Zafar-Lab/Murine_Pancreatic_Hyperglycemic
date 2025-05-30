@@ -1,0 +1,280 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+
+library(Seurat)
+
+
+```
+
+
+```{r}
+Hs.Immune <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/HIRN immune 0.1 wo annotations.rds")
+DimPlot(Hs.Immune)
+
+FeaturePlot(Hs.Immune, features = c("SST", "PPY", "INS", "GCG"))
+
+VlnPlot(Hs.Immune, features = c("TPSB2", "TPSAB1", "KIT", "SOD2", "IL1B", "CD3D", "CD69", "CCL5", "CD2"), stack = T, flip = T)
+
+DotPlot(Hs.Immune, features = c("TPSB2", "TPSAB1", "KIT", "SOD2", "IL1B", "CD3D", "CD69", "CCL5", "CD2"))
+
+saveRDS(Hs.Immune, file = "H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN Immune 0.1 JT.rds")
+```
+
+```{r}
+library(dplyr)
+all_markers_top_10 <- all_markers %>% group_by(cluster) %>% top_n(20, avg_log2FC)
+
+
+```
+
+
+```{r}
+markers_Macrophages <- c("CD68","LYZ","CXCL8")
+markers_Tcells <- c("CD3D", "CCL5",  "KLRB1")
+markers_Granulocytes_or_mastcells <- c("TPSB2", "TPSAB1", "KIT")
+markers_APCs <- c("HLA-DRA", "HLA-DPB1","HLA-DPA1") 
+
+markers_immune <- c(markers_Tcells,markers_Granulocytes_or_mastcells, markers_Macrophages, markers_APCs)
+
+VlnPlot(Hs.Immune, features = markers_immune, stack = T, flip = T)+NoLegend()
+
+```
+```{r}
+Hs.Immune$subtype2 <- 0
+Hs.Immune@meta.data[Hs.Immune@meta.data$seurat_clusters %in% 0, "subtype2"] <- "Hs-Granulocytes"
+Hs.Immune@meta.data[Hs.Immune@meta.data$seurat_clusters %in% 3, "subtype2"] <- "Hs-T cells"
+Hs.Immune@meta.data[Hs.Immune@meta.data$seurat_clusters %in% 1, "subtype2"] <- "Hs-Macrophages"
+Hs.Immune@meta.data[Hs.Immune@meta.data$seurat_clusters %in% 2, "subtype2"] <- "Hs-APCs"
+
+
+
+Hs.Immune$subtype2_condition <- paste0(Hs.Immune$subtype2, "_", Hs.Immune$condition)
+
+
+Hs.Immune <- SetIdent(Hs.Immune, value = Hs.Immune$subtype2)
+levels(Hs.Immune) <- c("Hs-T cells", "Hs-Granulocytes", "Hs-Macrophages", "Hs-APCs")
+
+DimPlot(Hs.Immune, label = T)
+
+
+
+
+
+
+VlnPlot(Hs.Immune, features = c("PNLIP", "CPB1", "CELA2A", , "APOE", "AMY2A", "LYZ"), stack = T, flip = T)
+```
+
+
+```{r}
+
+seurat_object <- Hs.Immune
+seurat_object <- SetIdent(seurat_object, value = seurat_object$subtype2)
+
+all_markers <- FindAllMarkers(seurat_object, logfc.threshold = 0.25, only.pos = F)
+all_markers <- all_markers[all_markers$p_val_adj < 0.05 ,]
+write.csv(all_markers, "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Immune/Markers_Hs-Immune.csv")
+
+path_to_save <- paste0("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Immune/",unique(seurat_object$subtype2)[i]," vs all.xlsx")
+
+for (i in 1:length(unique(seurat_object$subtype2))) {
+  
+all_markers_subset <- all_markers[all_markers$cluster == unique(seurat_object$subtype2)[i], ]
+  
+rownames(all_markers_subset)  <- all_markers_subset$gene 
+all_markers_subset <- all_markers_subset %>% arrange(desc(avg_log2FC))
+fold_change <- all_markers_subset$avg_log2FC
+names(fold_change) <- all_markers_subset$gene
+
+#GSEA Pathway sheet 
+###########################################################################################
+gsea_sheet <- fgsea(pathways = genesets, stats = fold_change, minSize = 5, maxSize = 5000) 
+gsea_sheet <- gsea_sheet %>% arrange(NES)
+gsea_sheet <- filter(gsea_sheet, pval <= 0.05) %>% arrange(NES)
+
+
+
+for (x in 1:length(gsea_sheet$leadingEdge)) {
+  gsea_sheet$genes[x]<- paste0(unlist(gsea_sheet$leadingEdge[x]), collapse = ", ")
+}
+
+gsea_sheet$leadingEdge <- NULL
+gsea_sheet <- unique(gsea_sheet)
+  
+path_to_save <- paste0("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Immune/",unique(seurat_object$subtype2)[i]," vs all.xlsx")
+writexl::write_xlsx(gsea_sheet, path = path_to_save)
+
+}
+
+```
+
+
+```{r}
+unique(Hs.Immune$subtype2_condition)
+
+library(ggplot2)
+library(fgsea)
+#Inputs
+seurat_object <- Hs.Immune
+seurat_object <- SetIdent(seurat_object, value = seurat_object$subtype2_condition)
+unique(seurat_object$subtype2_condition)
+
+cluster_names <- c("Hs-APCs")
+conditions <- c("Control", "Obese", "T2D")
+
+
+##############################################################################################################################
+
+for (i in 1:length(cluster_names)) {
+for (j in 2:3) {
+  
+identity.1 <- paste0(cluster_names[i],"_",conditions[j])
+identity.2 <- paste0(cluster_names[i],"_","Control")
+print(paste0(identity.1, " vs ", identity.2))
+
+Markers_gsea <- FindMarkers(seurat_object, ident.1 = identity.1, ident.2 = identity.2 , only.pos = F, logfc.threshold = 0.5)
+Markers_gsea$gene <- rownames(Markers_gsea)
+Markers_gsea <- Markers_gsea %>% arrange(desc(avg_log2FC))
+fold_change <- Markers_gsea$avg_log2FC
+names(fold_change) <- Markers_gsea$gene
+
+gsea_sheet <- fgsea(pathways = genesets, stats = fold_change, minSize = 5, maxSize = 5000) 
+gsea_sheet <- gsea_sheet[gsea_sheet$pval < 0.05, ]
+gsea_sheet <- gsea_sheet %>% arrange(NES)
+
+for (x in 1:length(gsea_sheet$leadingEdge)) {
+  gsea_sheet$genes[x]<- paste0(unlist(gsea_sheet$leadingEdge[x]), collapse = ", ")
+}
+
+gsea_sheet$leadingEdge <- NULL
+gsea_sheet <- unique(gsea_sheet)
+
+path_for_saving_gseaSheet <- paste0("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Immune/GSEA analysis ",identity.1,".xlsx")
+writexl::write_xlsx(gsea_sheet, path = path_for_saving_gseaSheet)
+
+}
+ }
+
+```
+
+
+
+
+
+
+
+################################################################################################################################################
+
+
+#Saving final plots
+
+```{r}
+Hs.Immune <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN Immune 0.1 JT.rds")
+
+```
+
+
+```{r}
+library(ggplot2)
+D1 <- DimPlot(Hs.Immune)
+ggsave(plot = D1, filename = "Hs.Immune Dimplot.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Immune/",height = 5, width = 7, device = "tiff", dpi = 600)
+
+D2 <- DimPlot(Hs.Immune, split.by = "condition")+NoLegend()
+ggsave(plot = D2, filename = "Hs.Immune Dimplot split.by.cond.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Immune/",height = 5, width = 15, device = "tiff", dpi = 600)
+
+# F1 <- FeaturePlot(Hs.Immune, features = "INS")+NoLegend()
+# ggsave(plot = F1, filename = "Hs.Immune Featureplot INS.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Immune/",height = 5, width = 5, device = "tiff", dpi = 600)
+
+# F2 <- FeaturePlot(Hs.Immune, features = "GCG")+NoLegend()
+# ggsave(plot = F2, filename = "Hs.Immune Featureplot GCG.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Immune/",height = 5, width = 5, device = "tiff", dpi = 600)
+
+
+
+
+# V1 <- VlnPlot(Hs.Immune, features = c("GCG", "INS"))+theme(axis.text.x = element_text(size=11, angle=45, hjust=1, color="black"),
+#         axis.text.y = element_text(size=11, color="black"),
+#         axis.title = element_text(size=14))
+# 
+# ggsave(plot = V1, filename = "Hs.Immune vlnplot INS GCG.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Immune/",height = 5, width = 10, device = "tiff", dpi = 600)
+```
+  
+```{r}
+
+
+Hs.Immune <- SetIdent(Hs.Immune, value = Hs.Immune$subtype2)
+levels(Hs.Immune) <- c("Hs-T cells", "Hs-Granulocytes", "Hs-Macrophages", "Hs-APCs")
+
+markers_Macrophages <- c("CD68","LYZ","CXCL8")
+markers_Tcells <- c("CD3D", "CCL5",  "KLRB1")
+markers_Granulocytes_or_mastcells <- c("TPSB2", "TPSAB1", "KIT")
+markers_APCs <- c("HLA-DRA", "HLA-DPB1","HLA-DPA1") 
+
+markers_immune <- c(markers_Tcells,markers_Granulocytes_or_mastcells, markers_Macrophages, markers_APCs)
+
+V2 <- VlnPlot(Hs.Immune, features = markers_immune , stack = T, flip = T)+theme(axis.text.x = element_text(size=11, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=11, color="black"),
+        axis.title = element_text(size=14))+NoLegend()
+
+ggsave(plot = V2, filename = "Hs.Immune vlnplot subpop.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Immune/",height = 9, width = 5, device = "tiff", dpi = 600)
+
+
+
+
+
+Hs.Immune <- SetIdent(Hs.Immune, value = Hs.Immune$subtype2_condition)
+levels(Hs.Immune) <- rev(c("Hs-Immune 1_Control","Hs-Immune 1_Obese","Hs-Immune 1_T2D","Hs-Immune 2_Control","Hs-Immune 2_Obese","Hs-Immune 2_T2D"))
+
+
+Dot1 <- DotPlot(Hs.Immune, assay = "RNA", features = c("PAX6", "IGFBP2", "MAFB", "CHGA", "CHGB","INS", "SST", "PRSS1", "CTRB2", "CELA3A"), scale.min = 0, scale.max = 100, dot.scale = 15) +theme(axis.text.x = element_text(size=11, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=11, color="black"),
+        axis.title = element_text(size=14), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 11), legend.text  = element_text(size=8))  
+
+
+Dot1
+
+ggsave(plot = Dot1, filename = "Hs.Immune dotplot Alpha1 vs 2.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Immune/",height = 6, width = 8, device = "tiff", dpi = 600)
+
+```
+
+```{r}
+pathway_sheet_to_plot <- readxl::read_excel("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Immune/GSEA alpha 2 vs alpha 1 .1.xlsx", sheet = "stringent sorting")
+
+############################################################################################################################################
+gsea_sheet_sig <- pathway_sheet_to_plot
+gsea_sheet_sig <- gsea_sheet_sig %>% arrange(-NES)
+pathway <- gsea_sheet_sig$pathway
+NES <- gsea_sheet_sig$NES
+p_val <- gsea_sheet_sig$pval
+
+
+gsea_enrichment_plot <- ggplot() + geom_bar(aes(x = reorder(pathway, NES), y = NES, fill = p_val), 
+                    stat = "identity", show.legend = T) +scale_fill_gradient(low = "blue", high = "red") + coord_flip()+ ggtitle(paste0("GSEA: Hs-Immune 1 vs Hs-Immune 2"))+ theme(plot.title = element_text(hjust = 0.5))
+
+ggsave(plot = gsea_enrichment_plot, filename = "Hs.Immune GSEA filtered Alpha1 vs 2.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Immune/",height = 3.5, width = 12.5, device = "tiff", dpi = 600)
+```
+
+
+
+
+```{r}
+
+GSEA_delta1 <- readxl::read_excel("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/GSEA for subpopulations.xlsx", sheet = "Hs-Delta 1")
+GSEA_delta2 <- readxl::read_excel("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/GSEA for subpopulations.xlsx", sheet = "Hs-Delta 2")
+
+length(intersect(GSEA_delta1$pathway, GSEA_delta2$pathway))
+
+```
+
+
+
+```{r}
+VlnPlot(Hs.Immune, features = c("CD138", "CD20", "CD27", "CD40", "CD80", "PDL-2", "CD1", "CD21", "CD25", "CD30"), stack = T, flip = T)
+```
+
+```{r}
+immune_markers <- FindAllMarkers(Hs.Immune, logfc.threshold = 0.25)
+```
+

@@ -1,0 +1,469 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+MM-ATAC alpha population final plots
+
+
+DEGs between Alpha 1 and Alpha 2
+```{r}
+library(Signac)
+saveRDS(Mm.ATAC, "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC working RDS/Mm-ATAC seurat 121222.rds")
+Mm.ATAC <- readRDS("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC working RDS/Mm-ATAC seurat 121222.rds")
+DefaultAssay(Mm.ATAC) <- "ATAC"
+Mm.ATAC<- SetIdent(Mm.ATAC, value = Mm.ATAC$predicted.cellstates.scran_norm)
+
+DimPlot(Mm.ATAC, label = T, repel = T)+NoLegend()
+
+
+
+Mm.ATAC <- subset(Mm.ATAC, predicted.cellstates.scran_norm != "Mm-Progenitor")
+Mm.ATAC <- RunTFIDF(Mm.ATAC)
+
+```
+
+
+```{r}
+Da_peaks <- FindMarkers(Mm.ATAC, logfc.threshold = 0.25, ident.1 = "Mm-Alpha 1", ident.2 = "Mm-Alpha 2")
+Da_peaks$query_region <- rownames(Da_peaks)
+
+closest_genes_all <- ClosestFeature(Mm.ATAC, regions = Da_peaks$query_region)
+Da_peaks = merge(Da_peaks, closest_genes_all, by = "query_region", all = T)
+Da_peaks<- unique(Da_peaks)
+
+Da_peaks <- Da_peaks[Da_peaks$distance == 0, ]
+Da_peaks <- na.omit(Da_peaks[Da_peaks$type != "gap", ])
+
+View(Da_peaks)
+
+writexl::write_xlsx(Da_peaks, path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Mm.ATAC Alpha analysis/Mm.ATAC Alpha 1 vs 2 markers.xlsx")
+```
+
+
+```{r}
+a <- gmtPathways("H:\\LAB 20 IIT K\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/h.all.v7.5.1.symbols.gmt")
+b <- gmtPathways("H:\\LAB 20 IIT K\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/m1.all.v0.3.symbols.gmt")
+c <- gmtPathways("H:\\LAB 20 IIT K\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/m2.all.v0.3.symbols.gmt")
+d <- gmtPathways("H:\\LAB 20 IIT K\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/m2.cp.v0.3.symbols.gmt")
+e <- gmtPathways("H:\\LAB 20 IIT K\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/m5.all.v0.3.symbols.gmt")
+f <- gmtPathways("H:\\LAB 20 IIT K\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/mh.all.v0.3.symbols.gmt")
+
+genesets <- c(a, b, c, d, e, f)
+```
+
+
+```{r}
+Markers_gsea <- Da_peaks
+Markers_gsea$gene <- Da_peaks$gene_name
+Markers_gsea <- Markers_gsea %>% arrange(desc(avg_log2FC))
+fold_change <- Markers_gsea$avg_log2FC
+names(fold_change) <- Markers_gsea$gene
+
+#GSEA Pathway sheet 
+##################################################################################################################
+gsea_sheet <- fgsea(pathways = genesets, stats = fold_change, minSize = 5, maxSize = 5000) 
+gsea_sheet <- gsea_sheet %>% arrange(NES)
+#gsea_sheet_sig <- filter(gsea_sheet, padj <= 0.05) %>% arrange(NES)
+
+
+for (x in 1:length(gsea_sheet$leadingEdge)) {
+  gsea_sheet$genes[x]<- paste0(unlist(gsea_sheet$leadingEdge[x]), collapse = ", ")
+}
+
+gsea_sheet$leadingEdge <- NULL
+gsea_sheet <- unique(gsea_sheet)
+gsea_sheet <- gsea_sheet[gsea_sheet$pval < 0.05, ]
+
+View(gsea_sheet)
+writexl::write_xlsx(gsea_sheet, path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Mm.ATAC Alpha analysis/Mm.ATAC Alpha 1 vs 2 GSEA.xlsx")
+
+```
+
+
+```{r}
+Mm.scRNA <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/Mm.seuratSC.scran norm.detailed JT.rds")
+
+GSEA_sheet_sorted <- readxl::read_excel("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Mm.ATAC Alpha analysis/Mm.ATAC Alpha 1 vs 2 GSEA.xlsx", sheet = "IGF1 and INS pathway")
+
+genes_to_plot <- unique(unlist(strsplit(unlist(GSEA_sheet_sorted$genes), ", ")))
+```
+
+
+Genes for Alpha 1 vs 2 coverage plots
+```{r}
+
+Da_peaks <- readxl::read_excel("E:/Islet project data-Jayesh/Mouse islet ATAC JT/Mm.ATAC final sheets and plots/Mm.ATAC Alpha analysis/Mm.ATAC Alpha 1 vs 2 markers.xlsx")
+
+Ca_dep_exo <- c("Nos1ap", "Syt1", "Hap1", "Vamp2", "Syt4", "Cacnb2", "Ank2", "Slc9a1", "Pkd2", "Cdk5")
+
+IGF1_n_INS_pathway <- c("Pik3r1", "Rasa1", "Sos1", "Jun", "Ptpn11", "Csnk2a2")
+
+Vesicle_transport <- c("Kif21b", "kcnh1", "Smap1", "syt1", "Gns", "Vta1", "Tpd52l1", "Agpat3", "Kif19a", "Vps54", "Nsg2", "Rufy1", "Sec24a", "Sar1b", "Epn2", "Vamp2", "Kif1c", "Ap2b1", "Spag9", "Chga", "Klc1", "Actr10", "Snx18", "Nedd8", "Mtmr6", "Sod1", "Pik3c3", "Syt4", "Hbegf", "Kif5b", "Vps39", "Sdc4", "Arfgef2", "Tor1a", "Gapvd1", "Stam2", "Dync1i2", "Sort1", "Ank2", "Sh3glb1", "Kif2c", "Ldlrap1", "Kif17", "Temed2", "Kdelr2", "Rac1", "Eif2ak1",
+"Cdk5", "Stx18", "Golt1b", "Dennd5b", "Wdr91", "Gga2", "Brsk2", "Actn4", "Cog4", "Stxbp2", "Clcn3", "Cope", "Dnase2a", "Tusc2", "Ophn1")
+
+genes_involved_in_GCG_secretion <- c("Prrc2c, Neurod1", "Armcx3", "Itpr1", "Foxa2", "Atf3", "Sox4", "Golgb1", "Ankrd11", "Tra2a", "Zdbf2", "Pax6", "Arx", "MafB", "Tomm7", "Sec61g", "Mrln", "Temed9", "Rbp4", "Gcg")
+
+Da_peaks_sorted <- Da_peaks[Da_peaks$gene_name %in% Ca_dep_exo, ]
+
+```
+
+
+
+
+```{r}
+idents.to.use <- c("Mm-Alpha 1", "Mm-Alpha 2")
+
+Mm.scRNA.idents.to.use <- c("Mm-Alpha 1", "Mm-Alpha 2")
+
+pdf(file = paste0("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Mm.ATAC Alpha analysis/Mm.ATAC Alpha 1 vs 2 Ca_dep_exo.pdf"), width = 17, height = 6.5)
+
+################################################################################################################################
+Mm.ATAC<- SetIdent(Mm.ATAC, value = Mm.ATAC$predicted.id.cellstates.detailed)
+
+Mm.scRNA <- SetIdent(Mm.scRNA, value = Mm.scRNA$cellstates.updated)
+#levels(Mm.scRNA) <- rev(Mm.ScRNA.levels$X.1)
+
+DefaultAssay(Mm.ATAC) <- "ATAC"
+DefaultAssay(Mm.scRNA) <- "RNA"
+
+for (i in 1:length(Da_peaks_sorted$gene_name)
+     ) {
+
+print(i)
+  print(Da_peaks_sorted$gene_name[i])
+levels(Mm.ATAC) <- rev(levels(Mm.ATAC))
+Plot <- CoveragePlot(object = Mm.ATAC,
+  region = Da_peaks_sorted$query_region[i],
+  extend.upstream = 1000,
+  extend.downstream = 1000,
+  #features = Da_peaks_sorted$gene_name[i], 
+  links = F, idents = idents.to.use, 
+  region.highlight = StringToGRanges(Da_peaks_sorted$query_region[i]
+                                     )
+  )+patchwork::plot_annotation(title = paste0(Da_peaks_sorted$gene_name[i]," ",Da_peaks_sorted$type[i]," ",Da_peaks_sorted$query_region[i]," ", Da_peaks_sorted$gene_biotype[i]))
+  
+levels(Mm.ATAC) <- rev(levels(Mm.ATAC))
+
+# Dot.Plot <- DotPlot(Mm.ATAC, assay = "RNA", features = Da_peaks_sorted$gene_name[i],idents = idents.to.use, scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red")) +theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+#         axis.text.y = element_text(size=8, color="black"),
+#         axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6))+ ggtitle("Mm-scATAC seq RNA assay") 
+
+
+Dot.Plot1 <- DotPlot(Mm.scRNA, assay = "RNA", features = Da_peaks_sorted$gene_name[i],idents = Mm.scRNA.idents.to.use, scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("cyan", "red")) +theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=8, color="black"),
+        axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6))+ ggtitle( "Mm-scRNA seq RNA assay") 
+
+print(Plot#+Dot.Plot 
+      + Dot.Plot1)
+
+  }
+
+  dev.off()
+  
+```
+
+
+##############################################################################################################################
+
+Finding DE motifs
+```{r}
+Mm.ATAC.chormvar <- readRDS("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC data Jayesh/Mm-ATAC chromVar 121222.rds")
+DefaultAssay(Mm.ATAC.chormvar) <- "chromvar"
+Mm.ATAC.chormvar<- SetIdent(Mm.ATAC.chormvar, value = Mm.ATAC.chormvar$predicted.id.cellstates.detailed)
+
+
+```
+
+```{r}
+DE.motifs <- FindMarkers(Mm.ATAC.chormvar, logfc.threshold = 0.25, ident.1 = "Mm-Alpha 1", ident.2 = "Mm-Alpha 2", assay = "chromvar")
+DE.motifs$pct.difference <- DE.motifs$pct.1 - DE.motifs$pct.2
+DE.motifs$gene <- rownames(DE.motifs)
+differential.activity <- DE.motifs
+
+Jaspar.meta <- readxl::read_excel("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC data Jayesh/Sheets/JASPAR metadata.xlsx")
+Jaspar.meta$...7 <- NULL
+Jaspar.meta$Logo <- NULL
+Jaspar.meta <- na.omit(Jaspar.meta)
+
+
+differential.activity <- differential.activity[which(differential.activity$p_val < 0.05),]
+
+differential.activity$Name <- NA
+differential.activity$ID <- NA
+differential.activity$Species <-NA
+differential.activity$Class <- NA
+differential.activity$Family <- NA
+
+for (x in 1:length(Jaspar.meta$ID)) {
+  for (y in 1:length(rownames(differential.activity))) {
+    
+    if (Jaspar.meta$ID[x] == differential.activity$gene[y]) {
+      
+      differential.activity$ID[y] <- Jaspar.meta$ID[x]
+      differential.activity$Name[y] <- Jaspar.meta$Name[x]
+      differential.activity$Species[y] <- Jaspar.meta$Species[x]
+      differential.activity$Family[y] <- Jaspar.meta$Family[x]
+      differential.activity$Class[y] <- Jaspar.meta$Class[x]
+    }
+  }
+}
+
+#cells.use <- rownames(Mm.ATAC.integrated4@meta.data)[which(Mm.ATAC.integrated4@meta.data$cor.states1 == "Mm-Endothelial")]
+
+
+differential.activity$Motif.family <- paste0(differential.activity$gene," ", differential.activity$Family)
+differential.activity$Motif.name <- paste0(differential.activity$gene," ", differential.activity$Name)
+
+View(differential.activity)
+```
+
+
+```{r}
+
+DE.motifs1 <- DE.motifs[DE.motifs$avg_log2FC > 0,] 
+
+Jaspar.meta <- readxl::read_excel("F:/Mm.ATAC data Jayesh/Sheets/JASPAR metadata.xlsx")
+Jaspar.meta$...7 <- NULL
+Jaspar.meta$Logo <- NULL
+Jaspar.meta <- na.omit(Jaspar.meta)
+
+
+differential.activity <- differential.activity[which(differential.activity$p_val_adj < 0.05),]
+
+differential.activity$Name <- NA
+differential.activity$ID <- NA
+differential.activity$Species <-NA
+differential.activity$Class <- NA
+differential.activity$Family <- NA
+
+for (x in 1:length(Jaspar.meta$ID)) {
+  for (y in 1:length(rownames(differential.activity))) {
+    
+    if (Jaspar.meta$ID[x] == differential.activity$gene[y]) {
+      
+      differential.activity$ID[y] <- Jaspar.meta$ID[x]
+      differential.activity$Name[y] <- Jaspar.meta$Name[x]
+      differential.activity$Species[y] <- Jaspar.meta$Species[x]
+      differential.activity$Family[y] <- Jaspar.meta$Family[x]
+      differential.activity$Class[y] <- Jaspar.meta$Class[x]
+    }
+  }
+}
+
+#cells.use <- rownames(Mm.ATAC.integrated4@meta.data)[which(Mm.ATAC.integrated4@meta.data$cor.states1 == "Mm-Endothelial")]
+
+
+differential.activity$Motif.family <- paste0(differential.activity$gene," ", differential.activity$Family)
+differential.activity$Motif.name <- paste0(differential.activity$gene," ", differential.activity$Name)
+
+
+```
+
+
+
+
+```{r}
+motifs.to.plot <- differential.activity %>% group_by(cluster) %>% top_n(3, pct.difference)
+motifs.to.plot <- motifs.to.plot[order(motifs.to.plot$cluster), ]
+
+motifs.to.plot <- motifs.to.plot$gene
+motifs.to.plot <- unique(motifs.to.plot)
+
+
+
+motifs.to.plot <- unique(c("MA0600.2", "MA0799.1","MA0798.2","MA1496.1","MA0639.1", "MA0843.1", "MA0761.2", "MA0062.3", "MA0764.2", "MA0598.3", "MA0050.2","MA0062.3","MA0599.1", "MA1513.1", "MA0599.1","MA0079.4"))
+motif.labels <- c()
+motif.names <- c()
+
+for (i in 1:length(motifs.to.plot)) {
+  for (j in 1:length(differential.activity$gene)) {
+if (motifs.to.plot[i]==differential.activity$gene[j]) 
+  {motif.labels[i] <- differential.activity$Motif.family[j]
+motif.names[i] <- differential.activity$Motif.name[j]
+  }    
+  }    
+}
+
+
+print(motif.labels)
+
+levels(Mm.ATAC.chromvar) <- rev(c("Mm-Alpha","Mm-Beta","Mm-Delta","Mm-Endothelial","Mm-Gamma","Mm-Immune","Mm-PSCs","Mm-Acinar"))
+
+
+d1 <- Dot.Plot <- DotPlot(Mm.ATAC.chromvar, assay = "chromvar", features = motifs.to.plot
+                    #,idents = idents.to.use
+                   
+                    # , scale.min = 0, scale.max = 100, dot.scale = 15
+                    ) +theme(axis.text.x = element_text(size=8, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=8, color="black"),
+        axis.title = element_text(size=12), legend.box = "left", legend.box.just = "left", legend.position = "top", legend.title = element_text(size = 8), legend.text  = element_text(size=6)) +   scale_x_discrete(labels= motif.names)
+
+Differential.act.Endothelial <- differential.activity[differential.activity$cluster == "Mm-Endothelial",]
+Differential.act.Endothelial.ETS <- na.omit(Differential.act.Endothelial[Differential.act.Endothelial$Family == "Ets-related",])
+ETS_related_factors <- Differential.act.Endothelial.ETS$gene[1]
+Mm.ATAC.chromvar <- MetaFeature(Mm.ATAC.chromvar, features = ETS_related_factors,meta.name = "ETS_related_factors", slot = "data", assay = "ATAC")
+
+
+
+DefaultAssay(Mm.ATAC.chromvar) <- "chromvar"
+FeaturePlot(Mm.ATAC.chromvar, features = "ETS_related_factors", label = T, cols = c("white", "red"), repel = T, pt.size = 1.5)+ggtitle("Ets-related factors")
+
+VlnPlot(Mm.ATAC.chromvar, features = ETS_related_factors)
+
+Mm.ATAC.chromvar$Ets_related_factors <- NULL
+
+ 
+
+Ets_related_factors
+
+```
+
+##################################################################################################################
+
+
+```{r}
+
+Mm.ATAC <- readRDS("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC data Jayesh/Mm-ATAC seurat 121222.rds")
+DefaultAssay(Mm.ATAC) <- "ATAC"
+
+#Inputting cluster name from predicted.id.cellstates.detailed
+cluster.name <- "Mm-Alpha 1"
+
+#From predicted.cellstates.detailed.diet.week column
+identity.1 <- "Mm-Alpha 1 HFD_8W"
+identity.2 <- "Mm-Alpha 1 RC_8W"
+
+identity.3 <- "Mm-Alpha 1 HFD_8W"
+identity.4 <- "Mm-Alpha 1 RC_14W"
+
+identity.5 <- "Mm-Alpha 1 HFD_24W"
+identity.6 <- "Mm-Alpha 1 RC_30W"
+
+#From detailed.cellstates.diet column
+identity.7 <- "Mm-Alpha 1_HFD"
+identity.8 <- "Mm-Alpha 1_RC"
+
+#####################################################################################################################
+Mm.ATAC <- SetIdent(Mm.ATAC, value = Mm.ATAC$predicted.cellstates.detailed.diet.week)
+Da_peaks1 <- FindMarkers(Mm.ATAC, ident.1 = identity.1, ident.2 = identity.2, logfc.threshold = 0.25, only.pos = F)
+Da_peaks2 <- FindMarkers(Mm.ATAC, ident.1 = identity.3, ident.2 = identity.4, logfc.threshold = 0.25, only.pos = F)
+Da_peaks3 <- FindMarkers(Mm.ATAC, ident.1 = identity.5, ident.2 = identity.6, logfc.threshold = 0.25, only.pos = F)
+
+
+Mm.ATAC <- SetIdent(Mm.ATAC, value = Mm.ATAC$detailed.cellstates.diet)
+Da_peaks4 <- FindMarkers(Mm.ATAC, ident.1 = identity.7, ident.2 = identity.8, logfc.threshold = 0.25, only.pos = F)
+
+Da_peaks1$cluster <- identity.1
+Da_peaks2$cluster <- identity.3
+Da_peaks3$cluster <- identity.5
+Da_peaks4$cluster <- identity.7
+
+Da_peaks1$test <- paste0("FindMarkers: ",identity.1," vs ", identity.2)
+Da_peaks2$test <- paste0("FindMarkers: ",identity.3," vs ", identity.4)
+Da_peaks3$test <- paste0("FindMarkers: ",identity.5," vs ", identity.6)
+Da_peaks4$test <- paste0("FindMarkers: ",identity.7," vs ", identity.8)
+
+
+
+
+Da_peaks_sf <- rbind(Da_peaks1, Da_peaks2, Da_peaks3, Da_peaks4)
+Da_peaks_sf <- Da_peaks_sf[Da_peaks_sf$p_val < 0.05,]
+Da_peaks_sf$query_region <- rownames(Da_peaks_sf)
+
+##########################################################################################################
+
+
+Mm.ATAC.subset <- subset(Mm.ATAC, predicted.id.cellstates.detailed== cluster.name)
+Mm.ATAC.subset <- RunTFIDF(Mm.ATAC.subset)
+Mm.ATAC.subset <- FindTopFeatures(Mm.ATAC.subset, min.cutoff = 'q0')
+Mm.ATAC.subset <- RunSVD(Mm.ATAC.subset)
+
+Mm.ATAC.subset <- SetIdent(Mm.ATAC.subset, value = Mm.ATAC.subset$predicted.cellstates.detailed.diet.week)
+DefaultAssay(Mm.ATAC.subset) <- "ATAC"
+
+###########################################################################################################
+
+Da_peaks5 <- FindAllMarkers(Mm.ATAC.subset, only.pos = F, logfc.threshold = 0.25)
+colnames(Da_peaks5)[7] <- "query_region"
+Da_peaks5$test <- paste0("FindAllMarkers: ",cluster.name, "from predicted.cellstates.detailed.diet.week")
+Da_peaks5 <- Da_peaks5[Da_peaks5$cluster == identity.1|Da_peaks5$cluster == identity.3|Da_peaks5$cluster == identity.5,]
+Da_peaks5 <- Da_peaks5[Da_peaks5$avg_log2FC > 0,]
+
+
+
+
+Da_peaks_f <- rbind(Da_peaks5, Da_peaks_sf)
+Da_peaks_f <- Da_peaks_f[Da_peaks_f$p_val < 0.05,]
+Da_peaks_f$query_region <- rownames(Da_peaks_f)
+
+
+
+
+closest_genes_all <- ClosestFeature(Mm.ATAC, regions = Da_peaks_f$query_region)
+Da_peaks_f <- merge(Da_peaks_f, closest_genes_all, by = "query_region", all = T)
+Da_peaks_f <- Da_peaks_f[Da_peaks_f$type != "gap", ]
+Da_peaks_f <- Da_peaks_f[Da_peaks_f$distance == 0, ]
+
+
+writexl::write_xlsx(Da_peaks_f, path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Mm.ATAC Alpha analysis/DARs across dietweek.xlsx")
+
+
+
+
+```
+
+
+```{r}
+Da_peaks_f_neg <- na.omit(Da_peaks_f[Da_peaks_f$avg_log2FC < 0, ])
+nrow(Da_peaks_f_neg)
+
+Da_peaks_f_pos <- na.omit(Da_peaks_f[Da_peaks_f$avg_log2FC > 0, ])
+nrow(Da_peaks_f_pos)
+```
+
+
+
+```{r}
+a <- gmtPathways("H:\\LAB 20 IIT K\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/h.all.v7.5.1.symbols.gmt")
+b <- gmtPathways("H:\\LAB 20 IIT K\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/m1.all.v0.3.symbols.gmt")
+c <- gmtPathways("H:\\LAB 20 IIT K\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/m2.all.v0.3.symbols.gmt")
+d <- gmtPathways("H:\\LAB 20 IIT K\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/m2.cp.v0.3.symbols.gmt")
+e <- gmtPathways("H:\\LAB 20 IIT K\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/m5.all.v0.3.symbols.gmt")
+f <- gmtPathways("H:\\LAB 20 IIT K\\HIRN-PANC DB\\HIRN updated\\Mm.GSEA/mh.all.v0.3.symbols.gmt")
+
+genesets <- c(a, b, c, d, e, f)
+```
+
+
+```{r}
+Markers_gsea <- na.omit(Da_peaks_f)
+Markers_gsea$gene <- Markers_gsea$gene_name
+Markers_gsea <- Markers_gsea %>% arrange(desc(avg_log2FC))
+fold_change <- Markers_gsea$avg_log2FC
+names(fold_change) <- Markers_gsea$gene
+
+#GSEA Pathway sheet 
+##################################################################################################################
+gsea_sheet <- fgsea(pathways = genesets, stats = fold_change, minSize = 5, maxSize = 5000) 
+gsea_sheet <- gsea_sheet %>% arrange(NES)
+#gsea_sheet_sig <- filter(gsea_sheet, padj <= 0.05) %>% arrange(NES)
+
+
+for (x in 1:length(gsea_sheet$leadingEdge)) {
+  gsea_sheet$genes[x]<- paste0(unlist(gsea_sheet$leadingEdge[x]), collapse = ", ")
+}
+
+gsea_sheet$leadingEdge <- NULL
+gsea_sheet <- unique(gsea_sheet)
+gsea_sheet <- gsea_sheet[gsea_sheet$pval < 0.05, ]
+
+View(gsea_sheet)
+
+writexl::write_xlsx(gsea_sheet, path = "H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC final sheets and plots/Mm.ATAC Alpha analysis/Mm.ATAC Alpha 1 GSEA across dietweek.xlsx")
+
+```
+
+
+
+

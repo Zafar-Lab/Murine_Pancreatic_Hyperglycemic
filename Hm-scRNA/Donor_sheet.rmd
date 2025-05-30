@@ -1,0 +1,29 @@
+---
+title: "Final Donor sheet"
+output: html_notebook
+---
+
+```{r}
+HIRN_Data <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN seurat processed and annotated wo juvenile JT.rds")
+```
+
+
+```{r}
+
+Final_HPAP_IDs <- unique(HIRN_data$hpap_id)
+donor_sheet <- readxl::read_excel("H:/Donor_Summary_137 (1).xlsx", sheet = "donor_sorted")
+donor_sheet <- donor_sheet[donor_sheet$donor_ID %in% Final_HPAP_IDs, ]
+
+```
+
+```{r}
+donor_sheet1 <- readxl::read_excel("H:/Donor_Summary_137 (1).xlsx", sheet = "laboratory_panel")
+donor_sheet1 <- donor_sheet1[donor_sheet1$donor_ID %in% Final_HPAP_IDs, ]
+donor_sheet1 <- donor_sheet1[donor_sheet1$lab_test == "Glucose (mg/dL) (60150)", ]
+```
+
+```{r}
+
+donor_sheet_final <- merge(donor_sheet1, donor_sheet, by = "donor_ID", all = T)
+
+```

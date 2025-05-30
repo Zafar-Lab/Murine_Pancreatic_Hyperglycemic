@@ -1,0 +1,45 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+Hs.PDCs <- subset(HIRN_data, cellchat_states.detailed == "Hs-PDCs")
+
+Hs.PDCs <- NormalizeData(Hs.PDCs)
+Hs.PDCs <- FindVariableFeatures(Hs.PDCs, nfeatures = 2000, selection.method = 'vst')
+
+
+
+all.genes <- rownames(Hs.PDCs)
+Hs.PDCs <- ScaleData(Hs.PDCs, features = all.genes)
+
+
+
+Hs.PDCs <- RunPCA(Hs.PDCs)
+Hs.PDCs <- RunHarmony(Hs.PDCs, group.by.vars = "hpap_id", assay.use = "RNA") 
+Hs.PDCs <- RunUMAP(Hs.PDCs, dims = 1:20, reduction = "harmony", return.model= T)
+Hs.PDCs <- FindNeighbors(object = Hs.PDCs, reduction = "harmony") 
+Hs.PDCs <- FindClusters(Hs.PDCs, resolution = 0.03)
+
+
+
+
+#markers <-  FindAllMarkers(Hs.PDCs, logfc.threshold = 0.25, only.pos = T)
+
+```
+
+2nd and 3rd clusters disapper in T2D and Obese and highly express INS
+```{r}
+Hs.PDCs$subtype2 <- 0
+Hs.PDCs@meta.data[Hs.PDCs@meta.data$seurat_clusters %in% 0, "subtype2"] <- "Hs-PDCs 1"
+Hs.PDCs@meta.data[Hs.PDCs@meta.data$seurat_clusters %in% 1, "subtype2"] <- "Hs-PDCs 2"
+Hs.PDCs@meta.data[Hs.PDCs@meta.data$seurat_clusters %in% 2, "subtype2"] <- "Hs-PDCs 3"
+
+Hs.PDCs <- SetIdent(Hs.PDCs, value = Hs.PDCs$subtype2)
+
+DimPlot(Hs.PDCs, split.by = "condition")
+
+saveRDS(Hs.PDCs, file = "H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN PDCs 0.03res JT.rds")
+```
+

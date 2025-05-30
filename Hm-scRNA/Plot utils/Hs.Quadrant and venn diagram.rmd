@@ -1,0 +1,371 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+library(Seurat)
+library(ggplot.multistats)
+library(ggplot2)
+library(ggplotify)
+library(ggrepel)
+#install.packages("ggpubr")
+library(ggpubr)
+```
+
+```{r}
+HIRN_data <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN seurat processed and annotated wo juvenile JT.rds")
+```
+
+```{r}
+#HIRN_data$cellchat_states.detailed.condition <- paste0(HIRN_data$cellchat_states.detailed, "_", HIRN_data$condition)
+
+HIRN_data  <- SetIdent(HIRN_data, value = HIRN_data$cellchat_states.detailed.condition)
+all_clusters <- unique(HIRN_data$cellchat_states.detailed)
+
+ print(paste0("Total clusters: ", length(all_clusters)))
+
+for(i in 1:length(all_clusters)){
+  cluster_name <- all_clusters[i]
+  
+ print(paste0(i, " ", cluster_name))
+#Finding common DEGs between T2D and Obese   
+identity.1 <- paste0(cluster_name,"_Control")
+identity.2 <- paste0(cluster_name,"_T2D")
+identity.3 <- paste0(cluster_name,"_Obese")
+
+
+markers_obese <- FindMarkers(HIRN_data, ident.1 = identity.3, ident.2 = identity.1, logfc.threshold = 0)
+markers_obese$gene <- rownames(markers_obese)
+colnames(markers_obese)[5] <- "p_val_adj_obese"
+colnames(markers_obese)[2] <- "`Mm-Beta 3 avg_log2FC`" 
+
+
+
+markers_T2D <- FindMarkers(HIRN_data, ident.1 = identity.2, ident.2 = identity.1, logfc.threshold = 0)
+markers_T2D$gene <- rownames(markers_T2D)
+colnames(markers_T2D)[5] <- "p_val_adj_T2D"
+colnames(markers_T2D)[2] <- "`Mm-Beta 2 avg_log2FC`"
+
+
+
+common_DEGs <- intersect(markers_obese$gene, markers_T2D$gene)
+markers_obese_log2FC <- markers_obese[markers_obese$gene %in% common_DEGs, ]
+markers_T2D_log2FC <- markers_T2D[markers_T2D$gene %in% common_DEGs, ]
+combined_log2FC <- merge(markers_T2D_log2FC, markers_obese_log2FC, by = "gene", all = T)
+combined_log2FC <- na.omit(combined_log2FC) 
+combined_log2FC <- combined_log2FC[combined_log2FC$p_val_adj_obese < 0.05 | combined_log2FC$p_val_adj_T2D < 0.05, ]
+combined_log2FC <- combined_log2FC[combined_log2FC$`Mm-Beta 2 avg_log2FC` > 0.25| combined_log2FC$avg_log2FC_obese > 0.25 |combined_log2FC$`Mm-Beta 2 avg_log2FC` < -0.25| combined_log2FC$avg_log2FC_obese < -0.25, ]
+
+
+#Creating quadrant plot
+
+p <- ggplot(combined_log2FC, aes(  x = `Mm-Beta 2 avg_log2FC`, y = avg_log2FC_obese))
+
+p <- p + scale_x_continuous(expand = c(0, 0), limits = c(min(combined_log2FC$`Mm-Beta 2 avg_log2FC`)-0.3,max(combined_log2FC$`Mm-Beta 2 avg_log2FC`)+0.3 )) 
+
+p <- p + scale_y_continuous(expand = c(0, 0), limits = c(min(combined_log2FC$avg_log2FC_obese)-0.3,max(combined_log2FC$avg_log2FC_obese)+0.3 ))
+
+p <- p + labs(x="Avg. Log2FC T2D",y="Avg. Log2FC Obese")
+p <- p + theme(axis.title.x = element_text(#hjust = 2, vjust= 0, 
+                                           colour="black",size=15))
+p <- p + theme(axis.title.y = element_text(#hjust = 0, vjust= 2 , 
+  colour="black",size=15))
+
+# p <- p + theme(
+#           axis.ticks.x=element_blank(),
+#           axis.text.x=element_blank(),
+#           axis.ticks.y=element_blank(),
+#           axis.text.y=element_blank()
+#         )
+
+p <- p +
+      annotate("rect", xmin = min(combined_log2FC$`Mm-Beta 2 avg_log2FC`)-0.3, xmax = 0, ymin = min(combined_log2FC$avg_log2FC_obese)-0.3, ymax = 0, fill= "#FDF0F0")  +
+      annotate("rect", xmin = 0, xmax = max(combined_log2FC$`Mm-Beta 2 avg_log2FC`)+0.3 ,ymin = min(combined_log2FC$avg_log2FC_obese)-0.3, ymax = 0, fill= "#F2FBFA") + 
+      annotate("rect", xmin = min(combined_log2FC$`Mm-Beta 2 avg_log2FC`)-0.3, xmax = 0, ymin = 0, ymax = max(combined_log2FC$avg_log2FC_obese)+0.3, fill= "#F2FBFA") + 
+      annotate("rect", xmin = 0, xmax = max(combined_log2FC$`Mm-Beta 2 avg_log2FC`)+0.3 , ymin = 0, ymax = max(combined_log2FC$avg_log2FC_obese)+0.3, fill= "#FDF0F0")
+
+
+p <- p + theme(panel.border = element_rect(colour = "lightgrey", fill=NA, size=2))
+p <- p + geom_hline(yintercept=0, color = "lightgrey", size=1)
+p <- p + geom_vline(xintercept=0, color = "lightgrey", size=1)
+
+#p <- p + geom_point(colour = "#4B7AE6", size = 3)
+
+p <- p + ggshadow::geom_shadowpoint(colour = "black", size = 2, shadowcolour= "dark grey", shadowsize = 0, shadowalpha = 0)+geom_point(colour = "black", size = 2.8)
+p <- p + geom_text_repel(aes(label= gene),colour="#3B53D9", max.overlaps = 20, size = 3)+ stat_smooth(method = "lm", linetype = "dashed",
+        col = "#C42126",
+        se = FALSE,
+        size = 0.4)+ggtitle(cluster_name)+theme(plot.title = element_text(hjust = 0.5, size = 20))
+
+p <- p +stat_cor(label.y.npc = 0.95, label.x.npc =  0.05, method = "pearson",size=5) 
+
+#Saving plots
+ggsave(plot = p, filename = paste0("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Quadrant plots/",cluster_name, "qradrant plot.tiff"), device = "tiff", width = 12, height = 12, dpi = 600)
+
+}
+```
+
+
+```{r}
+#devtools::install_github("yanlinlin82/ggvenn")
+library(ggvenn)
+
+```
+
+```{r}
+HIRN_data  <- SetIdent(HIRN_data, value = HIRN_data$cellchat_states.detailed.condition)
+all_clusters <- unique(HIRN_data$cellchat_states.detailed)
+
+ print(paste0("Total clusters: ", length(all_clusters)))
+
+for(i in 1:length(all_clusters)){
+  cluster_name <- all_clusters[i]
+  
+ print(paste0(i, " ", cluster_name))
+#Finding common DEGs between T2D and Obese   
+identity.1 <- paste0(cluster_name,"_Control")
+identity.2 <- paste0(cluster_name,"_T2D")
+identity.3 <- paste0(cluster_name,"_Obese")
+
+   
+markers_obese <- FindMarkers(HIRN_data, ident.1 = identity.3, ident.2 = identity.1, logfc.threshold = 0)
+markers_obese <- markers_obese[markers_obese$p_val_adj < 0.05, ]
+markers_obese$gene <- rownames(markers_obese)
+
+
+markers_T2D <- FindMarkers(HIRN_data, ident.1 = identity.2, ident.2 = identity.1, logfc.threshold = 0)
+markers_T2D <- markers_T2D[markers_T2D$p_val_adj < 0.05, ]
+markers_T2D$gene <- rownames(markers_T2D)
+
+
+x = list(`T2D Markers` = markers_T2D$gene, `Obese Markers` = markers_obese$gene)
+names(x)[1] <- paste0(cluster_name," T2D")
+names(x)[2] <- paste0(cluster_name," Obese")
+
+Venn_diagram <- ggvenn(x, 
+  fill_color = c("#E96037", "#5396C6"),
+  stroke_size = 0.5, set_name_size = 3.2)
+
+#Saving plots
+ggsave(plot = Venn_diagram, filename = paste0("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Venn T2D vs Obese/",cluster_name, " Venn.tiff"), device = "tiff", width = 6, height = 4, dpi = 300)
+
+}
+```
+
+
+###################################################################################################################
+
+Quadrant plot for ATAC
+
+```{r}
+
+Hs.ATAC.chromvar  <- SetIdent(Hs.ATAC.chromvar, value = Hs.ATAC.chromvar$predicted.id.condition)
+all_clusters <- c("Hs-Alpha 1", "Hs-Alpha 2", "Hs-Beta 1", "Hs-Beta 2")
+DefaultAssay(Hs.ATAC.chromvar) <- "chromvar"
+
+################################################################################################################
+ print(paste0("Total clusters: ", length(all_clusters)))
+
+for(i in 1:length(all_clusters)){
+  cluster_name <- all_clusters[i]
+  
+ print(paste0(i, " ", cluster_name))
+#Finding common DEGs between T2D and Obese   
+identity.1 <- paste0(cluster_name,"_Control")
+identity.2 <- paste0(cluster_name,"_T2D")
+identity.3 <- paste0(cluster_name,"_Obese")
+
+##############################################################################################################
+markers_obese <- FindMarkers(Hs.ATAC.chromvar, ident.1 = identity.3, ident.2 = identity.1, logfc.threshold = 0)
+markers_obese$gene <- rownames(markers_obese)
+colnames(markers_obese)[5] <- "p_val_adj_obese"
+colnames(markers_obese)[2] <- "avg_log2FC_obese" 
+
+
+differential.activity <- markers_obese 
+
+Jaspar.meta <- readxl::read_excel("H:/LAB 20 IIT K/Mouse Islets ATACseq JT/Mm.ATAC data Jayesh/Sheets/JASPAR metadata.xlsx")
+Jaspar.meta$...7 <- NULL
+Jaspar.meta$Logo <- NULL
+Jaspar.meta <- na.omit(Jaspar.meta)
+
+
+#differential.activity <- differential.activity[which(differential.activity$p_val_adj < 0.05),]
+
+differential.activity$Name <- NA
+differential.activity$ID <- NA
+differential.activity$Species <-NA
+differential.activity$Class <- NA
+differential.activity$Family <- NA
+
+for (x in 1:length(Jaspar.meta$ID)) {
+  for (y in 1:length(rownames(differential.activity))) {
+    
+    if (Jaspar.meta$ID[x] == differential.activity$gene[y]) {
+      
+      differential.activity$ID[y] <- Jaspar.meta$ID[x]
+      differential.activity$Name[y] <- Jaspar.meta$Name[x]
+      differential.activity$Species[y] <- Jaspar.meta$Species[x]
+      differential.activity$Family[y] <- Jaspar.meta$Family[x]
+      differential.activity$Class[y] <- Jaspar.meta$Class[x]
+    }
+  }
+}
+
+#cells.use <- rownames(Mm.ATAC.integrated4@meta.data)[which(Mm.ATAC.integrated4@meta.data$cor.states1 == "Mm-Endothelial")]
+
+
+differential.activity$Motif.family <- paste0(differential.activity$gene,"_", differential.activity$Family)
+differential.activity$Motif.name <- paste0(differential.activity$gene,"_", differential.activity$Name)
+
+markers_obese <- na.omit(differential.activity)
+markers_obese$gene <- paste0(markers_obese$gene, "_", markers_obese$Name)
+
+
+
+###############################################################################################################
+markers_T2D <- FindMarkers(Hs.ATAC.chromvar, ident.1 = identity.2, ident.2 = identity.1, logfc.threshold = 0)
+markers_T2D$gene <- rownames(markers_T2D)
+colnames(markers_T2D)[5] <- "p_val_adj_T2D"
+colnames(markers_T2D)[2] <- "`Mm-Beta 2 avg_log2FC`"
+
+
+
+
+differential.activity <- markers_T2D 
+
+
+
+#differential.activity <- differential.activity[which(differential.activity$p_val_adj < 0.05),]
+
+differential.activity$Name <- NA
+differential.activity$ID <- NA
+differential.activity$Species <-NA
+differential.activity$Class <- NA
+differential.activity$Family <- NA
+
+for (x in 1:length(Jaspar.meta$ID)) {
+  for (y in 1:length(rownames(differential.activity))) {
+    
+    if (Jaspar.meta$ID[x] == differential.activity$gene[y]) {
+      
+      differential.activity$ID[y] <- Jaspar.meta$ID[x]
+      differential.activity$Name[y] <- Jaspar.meta$Name[x]
+      differential.activity$Species[y] <- Jaspar.meta$Species[x]
+      differential.activity$Family[y] <- Jaspar.meta$Family[x]
+      differential.activity$Class[y] <- Jaspar.meta$Class[x]
+    }
+  }
+}
+
+#cells.use <- rownames(Mm.ATAC.integrated4@meta.data)[which(Mm.ATAC.integrated4@meta.data$cor.states1 == "Mm-Endothelial")]
+
+
+differential.activity$Motif.family <- paste0(differential.activity$gene,"_", differential.activity$Family)
+differential.activity$Motif.name <- paste0(differential.activity$gene,"_", differential.activity$Name)
+
+markers_T2D <- na.omit(differential.activity)
+markers_T2D$gene <- paste0(markers_T2D$gene, "_", markers_T2D$Name)
+
+
+###############################################################################################################
+common_DEGs <- intersect(markers_obese$gene, markers_T2D$gene)
+markers_obese_log2FC <- markers_obese[markers_obese$gene %in% common_DEGs, ]
+markers_T2D_log2FC <- markers_T2D[markers_T2D$gene %in% common_DEGs, ]
+combined_log2FC <- merge(markers_T2D_log2FC, markers_obese_log2FC, by = "gene", all = T)
+combined_log2FC <- na.omit(combined_log2FC) 
+combined_log2FC <- combined_log2FC[combined_log2FC$p_val_adj_obese < 0.05 | combined_log2FC$p_val_adj_T2D < 0.05, ]
+combined_log2FC <- combined_log2FC[combined_log2FC$avg_log2FC_T2D > 0.25| combined_log2FC$avg_log2FC_obese > 0.25 |combined_log2FC$avg_log2FC_T2D < -0.25| combined_log2FC$avg_log2FC_obese < -0.25, ]
+
+
+#Creating quadrant plot
+
+p <- ggplot(combined_log2FC, aes(  x = avg_log2FC_T2D, y = avg_log2FC_obese))
+
+p <- p + scale_x_continuous(expand = c(0, 0), limits = c(min(combined_log2FC$avg_log2FC_T2D)-0.3,max(combined_log2FC$avg_log2FC_T2D)+0.3 )) 
+
+p <- p + scale_y_continuous(expand = c(0, 0), limits = c(min(combined_log2FC$avg_log2FC_obese)-0.3,max(combined_log2FC$avg_log2FC_obese)+0.3 ))
+
+p <- p + labs(x="Avg. Log2FC T2D",y="Avg. Log2FC Obese")
+p <- p + theme(axis.title.x = element_text(#hjust = 2, vjust= 0, 
+                                           colour="black",size=15))
+p <- p + theme(axis.title.y = element_text(#hjust = 0, vjust= 2 , 
+  colour="black",size=15))
+
+# p <- p + theme(
+#           axis.ticks.x=element_blank(),
+#           axis.text.x=element_blank(),
+#           axis.ticks.y=element_blank(),
+#           axis.text.y=element_blank()
+#         )
+
+p <- p +
+      annotate("rect", xmin = min(combined_log2FC$avg_log2FC_T2D)-0.3, xmax = 0, ymin = min(combined_log2FC$avg_log2FC_obese)-0.3, ymax = 0, fill= "#FDF0F0")  +
+      annotate("rect", xmin = 0, xmax = max(combined_log2FC$avg_log2FC_T2D)+0.3 ,ymin = min(combined_log2FC$avg_log2FC_obese)-0.3, ymax = 0, fill= "#F2FBFA") + 
+      annotate("rect", xmin = min(combined_log2FC$avg_log2FC_T2D)-0.3, xmax = 0, ymin = 0, ymax = max(combined_log2FC$avg_log2FC_obese)+0.3, fill= "#F2FBFA") + 
+      annotate("rect", xmin = 0, xmax = max(combined_log2FC$avg_log2FC_T2D)+0.3 , ymin = 0, ymax = max(combined_log2FC$avg_log2FC_obese)+0.3, fill= "#FDF0F0")
+
+
+p <- p + theme(panel.border = element_rect(colour = "lightgrey", fill=NA, size=2))
+p <- p + geom_hline(yintercept=0, color = "lightgrey", size=1)
+p <- p + geom_vline(xintercept=0, color = "lightgrey", size=1)
+
+#p <- p + geom_point(colour = "#4B7AE6", size = 3)
+
+p <- p + ggshadow::geom_shadowpoint(colour = "black", size = 2, shadowcolour= "dark grey", shadowsize = 0, shadowalpha = 0)+geom_point(colour = "black", size = 2.8)
+p <- p + geom_text_repel(aes(label= gene),colour="#3B53D9", max.overlaps = 20, size = 3)+ stat_smooth(method = "lm", linetype = "dashed",
+        col = "#C42126",
+        se = FALSE,
+        size = 0.4)+ggtitle(cluster_name)+theme(plot.title = element_text(hjust = 0.5, size = 20))
+
+p <- p +stat_cor(label.y.npc = 0.95, label.x.npc =  0.05, method = "pearson",size=5) 
+
+#################################################################################################################
+
+
+x = list(`T2D Markers` = markers_T2D$gene, `Obese Markers` = markers_obese$gene)
+names(x)[1] <- paste0(cluster_name," T2D")
+names(x)[2] <- paste0(cluster_name," Obese")
+
+Venn_diagram <- ggvenn(x, 
+  fill_color = c("#E96037", "#5396C6"),
+  stroke_size = 0.5, set_name_size = 3.2)
+
+#Saving plots
+ggsave(plot = Venn_diagram, filename = paste0("H:/LAB 20 IIT K/Human Islets ATACseq JT/Hs.ATAC JT/Plots and sheets/Quadrant plots/",cluster_name, " Venn.tiff"), device = "tiff", width = 6, height = 4, dpi = 300)
+
+
+
+#Saving plots
+#ggsave(plot = p, filename = paste0("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Quadrant plots/",cluster_name, "qradrant plot Hs-ATAC.tiff"), device = "tiff", width = 12, height = 12, dpi = 600)
+
+}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

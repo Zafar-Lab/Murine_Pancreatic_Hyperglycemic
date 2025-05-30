@@ -1,0 +1,228 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+library(Seurat)
+library(ggplot2)
+library(dplyr)
+```
+
+```{r}
+#saveRDS(Hs.Endothelial, "H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN Endothelial annotated 0.1 JT.rds")
+Hs.Endothelial <- readRDS("H:/LAB 20 IIT K/HIRN-PANC DB/HIRN updated/Working rds/HIRN Endothelial annotated 0.1 JT.rds")
+DimPlot(Hs.Endothelial)
+
+FeaturePlot(Hs.Endothelial, features = c("SST", "PPY", "INS", "GCG"))
+```
+
+
+
+```{r}
+
+seurat_object <- Hs.Endothelial
+seurat_object <- SetIdent(seurat_object, value = seurat_object$subtype2)
+
+all_markers <- FindAllMarkers(seurat_object, logfc.threshold = 0.25, only.pos = F)
+all_markers <- all_markers[all_markers$p_val_adj < 0.05 ,]
+write.csv(all_markers, "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Endothelial/Markers_Hs-Endothelial.csv")
+
+path_to_save <- paste0("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Endothelial/",unique(seurat_object$subtype2)[i]," vs all.xlsx")
+
+for (i in 1:length(unique(seurat_object$subtype2))) {
+  
+all_markers_subset <- all_markers[all_markers$cluster == unique(seurat_object$subtype2)[i], ]
+  
+rownames(all_markers_subset)  <- all_markers_subset$gene 
+all_markers_subset <- all_markers_subset %>% arrange(desc(avg_log2FC))
+fold_change <- all_markers_subset$avg_log2FC
+names(fold_change) <- all_markers_subset$gene
+
+#GSEA Pathway sheet 
+###########################################################################################
+gsea_sheet <- fgsea(pathways = genesets, stats = fold_change, minSize = 5, maxSize = 5000) 
+gsea_sheet <- gsea_sheet %>% arrange(NES)
+gsea_sheet <- filter(gsea_sheet, pval <= 0.05) %>% arrange(NES)
+
+
+
+for (x in 1:length(gsea_sheet$leadingEdge)) {
+  gsea_sheet$genes[x]<- paste0(unlist(gsea_sheet$leadingEdge[x]), collapse = ", ")
+}
+
+gsea_sheet$leadingEdge <- NULL
+gsea_sheet <- unique(gsea_sheet)
+  
+path_to_save <- paste0("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Endothelial/",unique(seurat_object$subtype2)[i]," vs all.xlsx")
+writexl::write_xlsx(gsea_sheet, path = path_to_save)
+
+}
+
+```
+
+
+```{r}
+library(ggplot2)
+library(fgsea)
+#Inputs
+seurat_object <- Hs.Endothelial
+seurat_object <- SetIdent(seurat_object, value = seurat_object$subtype2_condition)
+
+
+cluster_names <- c("Hs-Endothelial 1", "Hs-Endothelial 2", "Hs-Endothelial 3", "Hs-Endothelial 4")
+conditions <- c("Control", "Obese", "T2D")
+
+
+##############################################################################################################################
+
+for (i in 1:length(cluster_names)) {
+for (j in 2:3) {
+  
+identity.1 <- paste0(cluster_names[i],"_",conditions[j])
+identity.2 <- paste0(cluster_names[i],"_","Control")
+print(paste0(identity.1, " vs ", identity.2))
+
+Markers_gsea <- FindMarkers(seurat_object, ident.1 = identity.1, ident.2 = identity.2 , only.pos = F, logfc.threshold = 0.5)
+Markers_gsea$gene <- rownames(Markers_gsea)
+Markers_gsea <- Markers_gsea %>% arrange(desc(avg_log2FC))
+fold_change <- Markers_gsea$avg_log2FC
+names(fold_change) <- Markers_gsea$gene
+
+gsea_sheet <- fgsea(pathways = genesets, stats = fold_change, minSize = 5, maxSize = 5000) 
+gsea_sheet <- gsea_sheet[gsea_sheet$pval < 0.05, ]
+gsea_sheet <- gsea_sheet %>% arrange(NES)
+
+for (x in 1:length(gsea_sheet$leadingEdge)) {
+  gsea_sheet$genes[x]<- paste0(unlist(gsea_sheet$leadingEdge[x]), collapse = ", ")
+}
+
+gsea_sheet$leadingEdge <- NULL
+gsea_sheet <- unique(gsea_sheet)
+
+path_for_saving_gseaSheet <- paste0("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Endothelial/GSEA analysis ",identity.1,".xlsx")
+writexl::write_xlsx(gsea_sheet, path = path_for_saving_gseaSheet)
+
+}
+ }
+
+```
+
+
+```{r}
+unique(Hs.Endothelial$subtype2)
+
+```
+
+```{r}
+Hs.Endothelial$old_names <- Hs.Endothelial$subtype2
+Hs.Endothelial$subtype2 <- 0
+Hs.Endothelial@meta.data[Hs.Endothelial@meta.data$old_names %in% "Hs-Endothelial 1", "subtype2"] <- "Hs-Metabolically active ECs"
+Hs.Endothelial@meta.data[Hs.Endothelial@meta.data$old_names %in% "Hs-Endothelial 2", "subtype2"] <- "Hs-Vascular ECs"
+Hs.Endothelial@meta.data[Hs.Endothelial@meta.data$old_names %in% "Hs-Endothelial 3", "subtype2"] <- "Hs-Proinflammatory ECs"
+Hs.Endothelial@meta.data[Hs.Endothelial@meta.data$old_names %in% "Hs-Endothelial 4", "subtype2"] <- "Hs-Immune regulatory ECs"
+
+
+
+Hs.Endothelial$subtype2_condition <- paste0(Hs.Endothelial$subtype2, "_", Hs.Endothelial$condition)
+
+
+Hs.Endothelial <- SetIdent(Hs.Endothelial, value = Hs.Endothelial$subtype2)
+levels(Hs.Endothelial) <- c("Hs-Vascular ECs",  "Hs-Metabolically active ECs", "Hs-Proinflammatory ECs", "Hs-Immune regulatory ECs")
+
+DimPlot(Hs.Endothelial, label = T, repel = T)
+
+
+
+#all_genes <- c("PECAM1","PLVAP", "KDR", "HSPG2", "INS", "SCG5", "PRSS2", "CXCL8", "GADD45B", "PPP1R15A" )
+
+
+```
+
+```{r}
+marker_endo <- FindAllMarkers(Hs.Endothelial, logfc.threshold = 0.25)
+marker_endo$pct.diff <- marker_endo$pct.1 - marker_endo$pct.2 
+genes_10 <- marker_endo %>% group_by(cluster) %>% top_n(20, pct.1)
+
+
+
+
+```
+
+
+#Saving final plots
+
+```{r}
+levels(Hs.Endothelial) <- c("Hs-Vascular ECs",  "Hs-Metabolically active ECs", "Hs-Proinflammatory ECs", "Hs-Immune regulatory ECs")
+
+D1 <- DimPlot(Hs.Endothelial)
+ggsave(plot = D1, filename = "Hs.Endothelial Dimplot.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Endothelial/",height = 5, width = 8, device = "tiff", dpi = 600)
+
+D2 <- DimPlot(Hs.Endothelial, split.by = "condition")+NoLegend()
+ggsave(plot = D2, filename = "Hs.Endothelial Dimplot split.by.cond.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Endothelial/",height = 5, width = 15, device = "tiff", dpi = 600)
+
+all_genes <- c("COL4A1", "HSPG2",  "JCAD", "INS", "REG1A","SCG5", "CYTOR","ANXA1", "KITLG", "ECE1","CD74","ICAM2" )
+
+
+V1 <- VlnPlot(Hs.Endothelial, features = all_genes, stack = T, flip = T)+NoLegend()
+V1
+
+ggsave(plot = V1, filename = "Hs.Endothelial vlnplot subpop 1.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Endothelial/",height = 11, width = 5, device = "tiff", dpi = 600)
+```
+
+```{r}
+markers_endothelial <- read.csv("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Endothelial/Markers_Hs-Endothelial.csv")
+ 
+Top15 <-  markers_endothelial %>% group_by(cluster) %>% top_n(15, avg_log2FC)
+
+DoHeatmap(Hs.Endothelial, features = Top15$gene)
+```
+
+```{r}
+
+Subpop_name <- "Hs-Proinflammatory ECs"
+
+pathway_sheet_to_plot <- readxl::read_excel("H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Endothelial/Hs-Endothelial GSEA final.xlsx", sheet = Subpop_name)
+
+############################################################################################################################################
+gsea_sheet_sig <- pathway_sheet_to_plot
+gsea_sheet_sig <- gsea_sheet_sig %>% arrange(NES)
+pathway <- gsea_sheet_sig$pathway
+NES <- gsea_sheet_sig$NES
+p_value <- gsea_sheet_sig$pval
+
+
+gsea_enrichment_plot <- ggplot() + geom_bar(aes(x = reorder(pathway, NES), y = NES, fill = p_value), 
+                    stat = "identity", show.legend = T) +scale_fill_gradient(low = "blue", high = "red") + coord_flip()+ ggtitle(paste0("GSEA: ",Subpop_name))+ theme(plot.title = element_text(hjust = 0.5))+xlab(" ")
+
+gsea_enrichment_plot
+
+ggsave(plot = gsea_enrichment_plot, filename = paste0(Subpop_name," GSEA.tiff"), path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Endothelial/",height = 5, width = 10, device = "tiff", dpi = 600)
+
+```
+
+
+
+
+
+
+
+```{r}
+library(Seurat)
+Hs.Endothelial <- SetIdent(Hs.Endothelial, value = Hs.Endothelial$subtype2_condition)
+levels(Hs.Endothelial) <- levels(Hs.Endothelial) %>% sort()
+
+idents.to.use <- c("Hs-Vascular ECs_Control","Hs-Vascular ECs_Obese","Hs-Vascular ECs_T2D")
+
+genes <- unique(c("ESM1", "KLF2", "ENG", "RAMP2", "ACTG1", "SOX18", "HSPB1", "ID1", "PGF",  "LGALS1", "ENG", "DYNLL1", "CTSD", "RAMP2", "ANXA5", "HSPB1", "ID1",  "CSTB", "DYNLL1", "CTSD", "ARPC5", "CTRC", "SOX4", "MGP", "PRSS1", "CPA1", "CELA3A4", "PRSS2", "CPB1","CTRB1", "CELA32", "CTRC", "HTRA1", 'PRSS1', 'CPA1', 'CELA3A', 'PRSS2', 'CPB1', 'CTRB1', 'CELA2A', 'CELA3B', 'CTRC', 'HTRA1'))
+
+
+
+Dot1 <- DotPlot(Hs.Endothelial, assay = "RNA", features =  genes, scale.min = 0, scale.max = 100, dot.scale = 15, cols = c("#33AEFF", "#FF5733"), idents = idents.to.use) +theme(axis.text.x = element_text(size=11, angle=45, hjust=1, color="black"),
+        axis.text.y = element_text(size=11, color="black"),
+        axis.title = element_text(size=14), legend.box = "left", legend.box.just = "left", legend.position = "right", legend.title = element_text(size = 11), legend.text  = element_text(size=8))+xlab(" ")+ylab(" ")
+
+Dot1
+
+ggsave(plot = Dot1, filename = "Hs.Vascular condition dotplot.tiff", path = "H:/LAB 20 IIT K/M.TECH THESIS/HIRN Data/Sheets/Hs-Endothelial/", device = "tiff", dpi = 600, width = 16, height = 4)
+```
+
